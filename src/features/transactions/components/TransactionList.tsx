@@ -18,61 +18,68 @@ export function TransactionList() {
 
             return {
                 ...tx,
-                accountName: account?.name || 'Unknown Account',
+                accountName: account?.name || 'Unknown',
                 categoryName: category?.name,
-                categoryIcon: category?.icon,
                 toAccountName: toAccount?.name
             };
         }));
     });
 
-    if (!transactions) return <div>Loading transactions...</div>
+    if (!transactions) return <div className="animate-pulse h-32 bg-muted rounded-xl" />
     if (transactions.length === 0) {
         return (
-            <div className="p-8 text-center border rounded shadow-sm bg-card">
-                <p className="text-muted-foreground">No transactions yet.</p>
+            <div className="p-12 text-center rounded-xl border border-dashed">
+                <div className="text-4xl mb-3">📝</div>
+                <p className="text-muted-foreground text-sm">还没有交易记录</p>
+                <p className="text-muted-foreground text-xs mt-1">点击右上角按钮开始记一笔</p>
             </div>
         )
     }
 
+    const formatter = new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY" })
+
     return (
-        <div className="space-y-4">
-            <div className="border rounded-md shadow-sm bg-card divide-y">
-                {transactions.map((tx) => (
-                    <div key={tx.id} className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
-                        <div className="flex items-center gap-4">
-                            <div className={`p-2 rounded-full ${tx.type === 'income' ? 'bg-green-100 text-green-600' :
-                                    tx.type === 'expense' ? 'bg-red-100 text-red-600' :
-                                        'bg-blue-100 text-blue-600'
-                                }`}>
-                                {/* Simple icon logic for now, later use category icons */}
-                                {tx.type === 'transfer' ? <ArrowRightLeft className="h-4 w-4" /> :
-                                    <div className="h-4 w-4 font-bold text-xs flex items-center justify-center">
-                                        {tx.categoryName ? tx.categoryName[0] : '?'}
-                                    </div>
-                                }
-                            </div>
-                            <div>
-                                <div className="font-medium text-sm">
-                                    {tx.type === 'transfer'
-                                        ? `Transfer to ${tx.toAccountName}`
-                                        : tx.categoryName || tx.note || 'Uncategorized'}
-                                </div>
-                                <div className="text-xs text-muted-foreground">
-                                    {format(tx.date, 'PPP')} • {tx.accountName}
-                                </div>
-                            </div>
-                        </div>
-                        <div className={`font-bold ${tx.type === 'income' ? 'text-green-600' :
-                                tx.type === 'expense' ? 'text-red-600' :
-                                    ''
+        <div className="rounded-xl border bg-card overflow-hidden">
+            {transactions.map((tx, i) => (
+                <div
+                    key={tx.id}
+                    className={`flex items-center justify-between px-4 py-3.5 hover:bg-muted/50 transition-colors ${i !== transactions.length - 1 ? "border-b" : ""
+                        }`}
+                >
+                    <div className="flex items-center gap-3">
+                        <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-sm font-bold ${tx.type === 'income'
+                                ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
+                                : tx.type === 'expense'
+                                    ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                                    : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
                             }`}>
-                            {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''}
-                            {new Intl.NumberFormat('zh-CN', { style: 'currency', currency: 'CNY' }).format(tx.amount)}
+                            {tx.type === 'transfer'
+                                ? <ArrowRightLeft className="h-4 w-4" />
+                                : <span>{tx.categoryName ? tx.categoryName[0] : '?'}</span>
+                            }
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium leading-none">
+                                {tx.type === 'transfer'
+                                    ? `转账至 ${tx.toAccountName}`
+                                    : tx.categoryName || tx.note || '未分类'}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                                {format(tx.date, 'MM/dd')} · {tx.accountName}
+                            </p>
                         </div>
                     </div>
-                ))}
-            </div>
+                    <span className={`text-sm font-semibold tabular-nums ${tx.type === 'income'
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : tx.type === 'expense'
+                                ? 'text-red-600 dark:text-red-400'
+                                : 'text-foreground'
+                        }`}>
+                        {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''}
+                        {formatter.format(tx.amount)}
+                    </span>
+                </div>
+            ))}
         </div>
     )
 }

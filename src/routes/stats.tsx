@@ -22,7 +22,7 @@ export default function Stats() {
         <div className="space-y-6">
             {/* 月份导航 */}
             <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold">Statistics</h2>
+                <h2 className="text-xl font-bold">统计</h2>
                 <div className="flex items-center gap-2">
                     <Button variant="outline" size="icon" onClick={goToPrevMonth}>
                         <ChevronLeft className="h-4 w-4" />
@@ -53,8 +53,8 @@ export default function Stats() {
 
             {/* 分类饼图 */}
             <div className="grid gap-4 md:grid-cols-2">
-                <CategoryBreakdown title="Expense by Category" data={stats.expenseByCategory} />
-                <CategoryBreakdown title="Income by Category" data={stats.incomeByCategory} />
+                <CategoryBreakdown title="支出分类" data={stats.expenseByCategory} />
+                <CategoryBreakdown title="收入分类" data={stats.incomeByCategory} />
             </div>
         </div>
     )

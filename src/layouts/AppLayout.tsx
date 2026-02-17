@@ -1,7 +1,6 @@
 import { Link, Outlet, useLocation } from "react-router-dom"
-import { Home, PieChart, Settings, Plus } from "lucide-react"
+import { Home, PieChart, Settings } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 
 export default function AppLayout() {
     const location = useLocation()
@@ -15,58 +14,82 @@ export default function AppLayout() {
     return (
         <div className="flex h-screen w-full bg-background text-foreground">
             {/* Desktop Sidebar */}
-            <div className="hidden md:flex w-64 flex-col border-r p-4 space-y-4">
-                <h1 className="text-2xl font-bold px-2 text-primary">Money Manager</h1>
-                <nav className="flex-1 space-y-2">
-                    {navItems.map((item) => (
-                        <Link to={item.path} key={item.path}>
-                            <Button
-                                variant={location.pathname === item.path ? "secondary" : "ghost"}
-                                className="w-full justify-start gap-2"
-                            >
-                                <item.icon className="h-4 w-4" />
-                                {item.label}
-                            </Button>
-                        </Link>
-                    ))}
+            <aside className="hidden md:flex w-64 flex-col bg-[hsl(var(--sidebar))] border-r">
+                {/* Logo 区域 */}
+                <div className="p-6 pb-2">
+                    <div className="flex items-center gap-3">
+                        <div className="h-9 w-9 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/30">
+                            <span className="text-primary-foreground font-bold text-sm">¥</span>
+                        </div>
+                        <div>
+                            <h1 className="text-lg font-bold tracking-tight">Money Manager</h1>
+                            <p className="text-xs text-muted-foreground">Personal Finance</p>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 导航菜单 */}
+                <nav className="flex-1 px-3 py-4 space-y-1">
+                    {navItems.map((item) => {
+                        const isActive = location.pathname === item.path
+                        return (
+                            <Link to={item.path} key={item.path}>
+                                <div
+                                    className={cn(
+                                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                                        isActive
+                                            ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                                            : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                                    )}
+                                >
+                                    <item.icon className="h-4 w-4" />
+                                    {item.label}
+                                </div>
+                            </Link>
+                        )
+                    })}
                 </nav>
-                <Button className="w-full gap-2">
-                    <Plus className="h-4 w-4" /> New Record
-                </Button>
-            </div>
+
+                {/* 底部版本信息 */}
+                <div className="p-4 border-t">
+                    <p className="text-xs text-muted-foreground text-center">v0.1.0</p>
+                </div>
+            </aside>
 
             {/* Main Content */}
             <div className="flex-1 flex flex-col h-full overflow-hidden">
-                <header className="md:hidden h-14 border-b flex items-center px-4 justify-between bg-card z-10">
-                    <h1 className="font-semibold">Money Manager</h1>
-                    {/* Mobile Header Actions if needed */}
+                {/* Mobile Header */}
+                <header className="md:hidden h-14 border-b flex items-center px-4 justify-between bg-card/80 backdrop-blur-md sticky top-0 z-10">
+                    <div className="flex items-center gap-2">
+                        <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
+                            <span className="text-primary-foreground font-bold text-xs">¥</span>
+                        </div>
+                        <h1 className="font-semibold text-sm">Money Manager</h1>
+                    </div>
                 </header>
 
-                <main className="flex-1 overflow-y-auto p-4 md:p-8">
+                <main className="flex-1 overflow-y-auto p-4 md:p-8 md:max-w-5xl md:mx-auto md:w-full">
                     <Outlet />
                 </main>
 
                 {/* Mobile Bottom Tab Bar */}
-                <div className="md:hidden h-16 border-t bg-card flex items-center justify-around px-2 z-10">
-                    {navItems.map((item) => (
-                        <Link to={item.path} key={item.path} className="flex-1">
-                            <div
-                                className={cn(
-                                    "flex flex-col items-center justify-center h-full space-y-1",
-                                    location.pathname === item.path ? "text-primary" : "text-muted-foreground"
-                                )}
-                            >
-                                <item.icon className="h-5 w-5" />
-                                <span className="text-xs font-medium">{item.label}</span>
-                            </div>
-                        </Link>
-                    ))}
-                    {/* Quick Add Button in Tab Bar Center - customized */}
-                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2">
-                        <Button size="icon" className="h-12 w-12 rounded-full shadow-lg">
-                            <Plus className="h-6 w-6" />
-                        </Button>
-                    </div>
+                <div className="md:hidden border-t bg-card/80 backdrop-blur-md flex items-center justify-around px-2 py-2 z-10">
+                    {navItems.map((item) => {
+                        const isActive = location.pathname === item.path
+                        return (
+                            <Link to={item.path} key={item.path} className="flex-1">
+                                <div
+                                    className={cn(
+                                        "flex flex-col items-center justify-center py-1 space-y-0.5 transition-colors",
+                                        isActive ? "text-primary" : "text-muted-foreground"
+                                    )}
+                                >
+                                    <item.icon className={cn("h-5 w-5", isActive && "drop-shadow-sm")} />
+                                    <span className="text-[10px] font-medium">{item.label}</span>
+                                </div>
+                            </Link>
+                        )
+                    })}
                 </div>
             </div>
         </div>

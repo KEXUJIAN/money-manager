@@ -19,7 +19,7 @@ export function DailyChart({ data }: DailyChartProps) {
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="text-sm font-medium">Daily Trends</CardTitle>
+                <CardTitle className="text-sm font-medium">每日趋势</CardTitle>
             </CardHeader>
             <CardContent>
                 <div className="h-64">
@@ -41,8 +41,8 @@ export function DailyChart({ data }: DailyChartProps) {
                                 }
                             />
                             <Legend />
-                            <Bar dataKey="income" name="Income" fill="#22c55e" radius={[2, 2, 0, 0]} />
-                            <Bar dataKey="expense" name="Expense" fill="#ef4444" radius={[2, 2, 0, 0]} />
+                            <Bar dataKey="income" name="收入" fill="#22c55e" radius={[2, 2, 0, 0]} />
+                            <Bar dataKey="expense" name="支出" fill="#ef4444" radius={[2, 2, 0, 0]} />
                         </BarChart>
                     </ResponsiveContainer>
                 </div>

@@ -131,18 +131,18 @@ export default function Settings() {
 
     return (
         <div className="space-y-6">
-            <h2 className="text-xl font-bold">Settings</h2>
+            <h2 className="text-xl font-bold">设置</h2>
 
             {/* 分类管理 */}
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-base">Category Management</CardTitle>
+                    <CardTitle className="text-base">分类管理</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {/* 添加新分类 */}
                     <div className="flex gap-2">
                         <Input
-                            placeholder="Category name..."
+                            placeholder="分类名称..."
                             value={newCatName}
                             onChange={(e) => setNewCatName(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && addCategory()}
@@ -153,8 +153,8 @@ export default function Settings() {
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="expense">Expense</SelectItem>
-                                <SelectItem value="income">Income</SelectItem>
+                                <SelectItem value="expense">支出</SelectItem>
+                                <SelectItem value="income">收入</SelectItem>
                             </SelectContent>
                         </Select>
                         <Button onClick={addCategory} size="icon">
@@ -164,7 +164,7 @@ export default function Settings() {
 
                     {/* 支出分类列表 */}
                     <div>
-                        <h4 className="text-sm font-medium text-muted-foreground mb-2">Expense Categories</h4>
+                        <h4 className="text-sm font-medium text-muted-foreground mb-2">支出分类</h4>
                         <div className="space-y-1">
                             {expenseCategories.map(cat => (
                                 <div key={cat.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50">
@@ -180,14 +180,14 @@ export default function Settings() {
                                 </div>
                             ))}
                             {expenseCategories.length === 0 && (
-                                <p className="text-sm text-muted-foreground">No expense categories</p>
+                                <p className="text-sm text-muted-foreground">暂无支出分类</p>
                             )}
                         </div>
                     </div>
 
                     {/* 收入分类列表 */}
                     <div>
-                        <h4 className="text-sm font-medium text-muted-foreground mb-2">Income Categories</h4>
+                        <h4 className="text-sm font-medium text-muted-foreground mb-2">收入分类</h4>
                         <div className="space-y-1">
                             {incomeCategories.map(cat => (
                                 <div key={cat.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50">
@@ -203,7 +203,7 @@ export default function Settings() {
                                 </div>
                             ))}
                             {incomeCategories.length === 0 && (
-                                <p className="text-sm text-muted-foreground">No income categories</p>
+                                <p className="text-sm text-muted-foreground">暂无收入分类</p>
                             )}
                         </div>
                     </div>
@@ -213,20 +213,20 @@ export default function Settings() {
             {/* 数据管理 */}
             <Card>
                 <CardHeader>
-                    <CardTitle className="text-base">Data Management</CardTitle>
+                    <CardTitle className="text-base">数据管理</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
                     <Button variant="outline" className="w-full justify-start" onClick={exportData}>
                         <Download className="mr-2 h-4 w-4" />
-                        Export Data (JSON)
+                        导出数据 (JSON)
                     </Button>
                     <Button variant="outline" className="w-full justify-start" onClick={importData}>
                         <Upload className="mr-2 h-4 w-4" />
-                        Import Data
+                        导入数据
                     </Button>
                     <Button variant="destructive" className="w-full justify-start" onClick={clearAllData}>
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Clear All Data
+                        清空所有数据
                     </Button>
                 </CardContent>
             </Card>

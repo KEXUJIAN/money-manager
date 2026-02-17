@@ -14,7 +14,7 @@ export function MonthlyOverview({ totalIncome, totalExpense, balance }: MonthlyO
         <div className="grid gap-4 grid-cols-3">
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Income</CardTitle>
+                    <CardTitle className="text-sm font-medium">收入</CardTitle>
                     <TrendingUp className="h-4 w-4 text-green-500" />
                 </CardHeader>
                 <CardContent>
@@ -26,7 +26,7 @@ export function MonthlyOverview({ totalIncome, totalExpense, balance }: MonthlyO
 
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Expense</CardTitle>
+                    <CardTitle className="text-sm font-medium">支出</CardTitle>
                     <TrendingDown className="h-4 w-4 text-red-500" />
                 </CardHeader>
                 <CardContent>
@@ -38,7 +38,7 @@ export function MonthlyOverview({ totalIncome, totalExpense, balance }: MonthlyO
 
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Balance</CardTitle>
+                    <CardTitle className="text-sm font-medium">结余</CardTitle>
                     <Wallet className="h-4 w-4 text-blue-500" />
                 </CardHeader>
                 <CardContent>
