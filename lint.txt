@@ -1,0 +1,63 @@
+
+D:\Workspase\money-manager\src\components\ui\button.tsx
+  57:18  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+D:\Workspase\money-manager\src\components\ui\form.tsx
+  170:3  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+D:\Workspase\money-manager\src\features\accounts\components\AccountFormSheet.tsx
+  86:32  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\Workspase\money-manager\src\features\accounts\components\AccountFormSheet.tsx:86:32
+  84 |                 await db.accounts.update(account.id, {
+  85 |                     ...values,
+> 86 |                     updatedAt: Date.now(),
+     |                                ^^^^^^^^^^ Cannot call impure function
+  87 |                 })
+  88 |             } else {
+  89 |                 await db.accounts.add({  react-hooks/purity
+  92:32  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\Workspase\money-manager\src\features\accounts\components\AccountFormSheet.tsx:92:32
+  90 |                     id: uuidv4(),
+  91 |                     ...values,
+> 92 |                     createdAt: Date.now(),
+     |                                ^^^^^^^^^^ Cannot call impure function
+  93 |                     updatedAt: Date.now(),
+  94 |                 })
+  95 |             }                           react-hooks/purity
+  93:32  error  Error: Cannot call impure function during render
+
+`Date.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+D:\Workspase\money-manager\src\features\accounts\components\AccountFormSheet.tsx:93:32
+  91 |                     ...values,
+  92 |                     createdAt: Date.now(),
+> 93 |                     updatedAt: Date.now(),
+     |                                ^^^^^^^^^^ Cannot call impure function
+  94 |                 })
+  95 |             }
+  96 |             onOpenChange(false)                             react-hooks/purity
+
+D:\Workspase\money-manager\src\features\transactions\components\AddTransactionSheet.tsx
+   98:44  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+  150:36  error    Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         @typescript-eslint/no-explicit-any
+  242:80  warning  Compilation Skipped: Use of incompatible library
+
+This API returns functions which cannot be memoized without leading to stale UI. To prevent this, by default React Compiler will skip memoizing this component/hook. However, you may see issues if values from this API are passed to other components/hooks that are memoized.
+
+D:\Workspase\money-manager\src\features\transactions\components\AddTransactionSheet.tsx:242:80
+  240 |                                             </FormControl>
+  241 |                                             <SelectContent>
+> 242 |                                                 {accounts.filter(a => a.id !== form.watch('accountId')).map(acc => (
+      |                                                                                ^^^^ React Hook Form's `useForm()` API returns a `watch()` function which cannot be memoized safely.
+  243 |                                                     <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
+  244 |                                                 ))}
+  245 |                                             </SelectContent>  react-hooks/incompatible-library
+
+âœ?8 problems (7 errors, 1 warning)
+

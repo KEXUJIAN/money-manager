@@ -7,7 +7,7 @@ import { format } from "date-fns"
 import { CalendarIcon, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-import { db, type Account, type Category } from "@/db"
+import { db } from "@/db"
 import { useLiveQuery } from "dexie-react-hooks"
 
 import { Button } from "@/components/ui/button"
@@ -36,7 +36,7 @@ import {
     SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Calendar } from "@/components/ui/calendar"
 import {
     Popover,

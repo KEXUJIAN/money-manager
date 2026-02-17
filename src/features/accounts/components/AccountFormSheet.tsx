@@ -3,7 +3,8 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { v4 as uuidv4 } from "uuid"
-import { db, type Account } from "@/db"
+import { db } from "@/db"
+import type { Account } from "@/db"
 
 import { Button } from "@/components/ui/button"
 import {

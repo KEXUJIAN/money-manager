@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Account } from "@/db"
+import type { Account } from "@/db"
 import { Wallet, CreditCard, Banknote } from "lucide-react"
 
 interface AccountCardProps {
