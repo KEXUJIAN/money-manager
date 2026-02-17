@@ -48,20 +48,22 @@ export const seedDatabase = async () => {
         },
     ]);
 
-    // 支出分类
+    // 支出分类（内置，不可删除）
     const expenseCats = expenseCategories.map((name) => ({
         id: uuidv4(),
         name,
         type: "expense" as const,
+        isBuiltin: true,
         createdAt: now,
         updatedAt: now,
     }));
 
-    // 收入分类（排除与支出重复的，用 type 区分）
+    // 收入分类（内置，不可删除）
     const incomeCats = incomeCategories.map((name) => ({
         id: uuidv4(),
         name,
         type: "income" as const,
+        isBuiltin: true,
         createdAt: now,
         updatedAt: now,
     }));

@@ -18,6 +18,7 @@ export interface Category {
   type: 'income' | 'expense' | 'transfer';
   icon?: string;
   color?: string;
+  isBuiltin?: boolean; // WHY: 区分内置分类（不可删除）和用户自定义分类
   parentId?: string; // For nested categories
   createdAt: number;
   updatedAt: number;

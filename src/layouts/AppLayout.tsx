@@ -6,9 +6,9 @@ export default function AppLayout() {
     const location = useLocation()
 
     const navItems = [
-        { icon: Home, label: "Home", path: "/" },
-        { icon: PieChart, label: "Stats", path: "/stats" },
-        { icon: Settings, label: "Settings", path: "/settings" },
+        { icon: Home, label: "首页", path: "/" },
+        { icon: PieChart, label: "统计", path: "/stats" },
+        { icon: Settings, label: "设置", path: "/settings" },
     ]
 
     return (

@@ -45,9 +45,9 @@ import {
 } from "@/components/ui/popover"
 
 const formSchema = z.object({
-    amount: z.coerce.number().min(0.01, "Amount must be greater than 0"),
+    amount: z.coerce.number().min(0.01, "金额必须大于 0"),
     type: z.enum(['income', 'expense', 'transfer']),
-    accountId: z.string().min(1, "Account is required"),
+    accountId: z.string().min(1, "请选择账户"),
     toAccountId: z.string().optional(),
     categoryId: z.string().optional(),
     date: z.date(),
@@ -58,7 +58,7 @@ const formSchema = z.object({
     }
     return true;
 }, {
-    message: "To Account is required for transfer",
+    message: "转账需要选择目标账户",
     path: ["toAccountId"],
 }).refine(data => {
     if (data.type === 'transfer' && data.accountId === data.toAccountId) {
@@ -66,7 +66,7 @@ const formSchema = z.object({
     }
     return true;
 }, {
-    message: "Cannot transfer to the same account",
+    message: "不能转账到同一账户",
     path: ["toAccountId"],
 });
 
@@ -166,20 +166,20 @@ export function AddTransactionSheet() {
             <SheetTrigger asChild>
                 <Button className="rounded-full h-12 w-12 shadow-lg fixed bottom-6 right-6 md:static md:h-9 md:w-auto md:shadow-none md:rounded-md">
                     <Plus className="h-6 w-6 md:mr-2 md:h-4 md:w-4" />
-                    <span className="hidden md:inline">Add Transaction</span>
+                    <span className="hidden md:inline">记一笔</span>
                 </Button>
             </SheetTrigger>
             <SheetContent className="overflow-y-auto w-full sm:max-w-md">
                 <SheetHeader>
-                    <SheetTitle>Add Transaction</SheetTitle>
-                    <SheetDescription>Record a new transaction.</SheetDescription>
+                    <SheetTitle>记一笔</SheetTitle>
+                    <SheetDescription>记录一笔新的收支</SheetDescription>
                 </SheetHeader>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">
                     <TabsList className="grid w-full grid-cols-3">
-                        <TabsTrigger value="expense">Expense</TabsTrigger>
-                        <TabsTrigger value="income">Income</TabsTrigger>
-                        <TabsTrigger value="transfer">Transfer</TabsTrigger>
+                        <TabsTrigger value="expense">支出</TabsTrigger>
+                        <TabsTrigger value="income">收入</TabsTrigger>
+                        <TabsTrigger value="transfer">转账</TabsTrigger>
                     </TabsList>
                 </Tabs>
 
@@ -190,7 +190,7 @@ export function AddTransactionSheet() {
                             name="amount"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Amount</FormLabel>
+                                    <FormLabel>金额</FormLabel>
                                     <FormControl>
                                         <div className="relative">
                                             <span className="absolute left-3 top-2.5 text-muted-foreground">¥</span>
@@ -207,11 +207,11 @@ export function AddTransactionSheet() {
                             name="accountId"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Account</FormLabel>
+                                    <FormLabel>账户</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                         <FormControl>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Select account" />
+                                                <SelectValue placeholder="选择账户" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
@@ -231,11 +231,11 @@ export function AddTransactionSheet() {
                                 name="toAccountId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>To Account</FormLabel>
+                                        <FormLabel>转入账户</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Select destination account" />
+                                                    <SelectValue placeholder="选择目标账户" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
@@ -256,11 +256,11 @@ export function AddTransactionSheet() {
                                 name="categoryId"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Category</FormLabel>
+                                        <FormLabel>分类</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl>
                                                 <SelectTrigger>
-                                                    <SelectValue placeholder="Select category" />
+                                                    <SelectValue placeholder="选择分类" />
                                                 </SelectTrigger>
                                             </FormControl>
                                             <SelectContent>
@@ -280,7 +280,7 @@ export function AddTransactionSheet() {
                             name="date"
                             render={({ field }) => (
                                 <FormItem className="flex flex-col">
-                                    <FormLabel>Date</FormLabel>
+                                    <FormLabel>日期</FormLabel>
                                     <Popover>
                                         <PopoverTrigger asChild>
                                             <FormControl>
@@ -292,9 +292,9 @@ export function AddTransactionSheet() {
                                                     )}
                                                 >
                                                     {field.value ? (
-                                                        format(field.value, "PHP")
+                                                        format(field.value, "yyyy-MM-dd")
                                                     ) : (
-                                                        <span>Pick a date</span>
+                                                        <span>选择日期</span>
                                                     )}
                                                     <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                                 </Button>
@@ -322,9 +322,9 @@ export function AddTransactionSheet() {
                             name="note"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Note</FormLabel>
+                                    <FormLabel>备注</FormLabel>
                                     <FormControl>
-                                        <Textarea placeholder="Optional note..." {...field} />
+                                        <Textarea placeholder="备注（可选）" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -332,7 +332,7 @@ export function AddTransactionSheet() {
                         />
 
                         <Button type="submit" className="w-full">
-                            Save Transaction
+                            保存
                         </Button>
                     </form>
                 </Form>

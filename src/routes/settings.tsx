@@ -40,6 +40,11 @@ export default function Settings() {
     }
 
     async function deleteCategory(id: string) {
+        const cat = categories.find(c => c.id === id)
+        if (cat?.isBuiltin) {
+            alert("内置分类不可删除")
+            return
+        }
         if (confirm("确定删除此分类？已关联的交易不受影响。")) {
             await db.categories.delete(id)
         }
@@ -203,15 +208,20 @@ export default function Settings() {
                         <div className="space-y-1">
                             {expenseCategories.map(cat => (
                                 <div key={cat.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50">
-                                    <span className="text-sm">{cat.name}</span>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-7 w-7"
-                                        onClick={() => deleteCategory(cat.id)}
-                                    >
-                                        <Trash2 className="h-3 w-3 text-muted-foreground" />
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm">{cat.name}</span>
+                                        {cat.isBuiltin && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">内置</span>}
+                                    </div>
+                                    {!cat.isBuiltin && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={() => deleteCategory(cat.id)}
+                                        >
+                                            <Trash2 className="h-3 w-3 text-muted-foreground" />
+                                        </Button>
+                                    )}
                                 </div>
                             ))}
                             {expenseCategories.length === 0 && (
@@ -226,15 +236,20 @@ export default function Settings() {
                         <div className="space-y-1">
                             {incomeCategories.map(cat => (
                                 <div key={cat.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50">
-                                    <span className="text-sm">{cat.name}</span>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-7 w-7"
-                                        onClick={() => deleteCategory(cat.id)}
-                                    >
-                                        <Trash2 className="h-3 w-3 text-muted-foreground" />
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm">{cat.name}</span>
+                                        {cat.isBuiltin && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">内置</span>}
+                                    </div>
+                                    {!cat.isBuiltin && (
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={() => deleteCategory(cat.id)}
+                                        >
+                                            <Trash2 className="h-3 w-3 text-muted-foreground" />
+                                        </Button>
+                                    )}
                                 </div>
                             ))}
                             {incomeCategories.length === 0 && (
