@@ -1,40 +1,70 @@
 import { db } from "./index";
 import { v4 as uuidv4 } from "uuid";
 
+// 用户提供的完整分类列表
+const expenseCategories = [
+    "餐饮", "借款", "通讯", "购物", "steam", "果蔬", "住房", "日常",
+    "交通", "还款", "娱乐", "基金", "日用", "旅行", "办公", "医疗",
+    "学习", "发红包", "美容", "书籍", "其他", "捐款", "运动", "股票",
+    "红包", "贷款", "收入", "报销", "定金", "理财", "保险",
+];
+
+const incomeCategories = [
+    "餐饮", "还款", "理财", "工资", "其他", "通讯", "收红包", "购物",
+    "报销", "住房", "steam", "退款", "交通", "礼金", "基金", "医疗",
+    "娱乐", "办公", "日用", "美容", "果蔬", "书籍", "借款", "红包",
+    "股票", "旅行", "贷款",
+];
+
 export const seedDatabase = async () => {
     const count = await db.accounts.count();
     if (count > 0) return;
 
-    // Default Accounts
+    const now = Date.now();
+
+    // 默认账户
     await db.accounts.bulkAdd([
         {
             id: uuidv4(),
-            name: "Cash",
+            name: "现金",
             type: "cash",
             balance: 0,
             currency: "CNY",
             icon: "wallet",
             color: "green",
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
+            createdAt: now,
+            updatedAt: now,
         },
         {
             id: uuidv4(),
-            name: "Alipay",
+            name: "支付宝",
             type: "alipay",
             balance: 0,
             currency: "CNY",
             icon: "alipay",
             color: "blue",
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-        }
+            createdAt: now,
+            updatedAt: now,
+        },
     ]);
 
-    // Default Categories
-    await db.categories.bulkAdd([
-        { id: uuidv4(), name: "Food", type: "expense", icon: "utensils", createdAt: Date.now(), updatedAt: Date.now() },
-        { id: uuidv4(), name: "Transport", type: "expense", icon: "bus", createdAt: Date.now(), updatedAt: Date.now() },
-        { id: uuidv4(), name: "Salary", type: "income", icon: "briefcase", createdAt: Date.now(), updatedAt: Date.now() },
-    ]);
+    // 支出分类
+    const expenseCats = expenseCategories.map((name) => ({
+        id: uuidv4(),
+        name,
+        type: "expense" as const,
+        createdAt: now,
+        updatedAt: now,
+    }));
+
+    // 收入分类（排除与支出重复的，用 type 区分）
+    const incomeCats = incomeCategories.map((name) => ({
+        id: uuidv4(),
+        name,
+        type: "income" as const,
+        createdAt: now,
+        updatedAt: now,
+    }));
+
+    await db.categories.bulkAdd([...expenseCats, ...incomeCats]);
 };

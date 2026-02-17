@@ -2,7 +2,7 @@ import { useState } from "react"
 import { db } from "@/db"
 import { useLiveQuery } from "dexie-react-hooks"
 import { v4 as uuidv4 } from "uuid"
-import { Download, Upload, Trash2, Plus } from "lucide-react"
+import { Download, Upload, Trash2, Plus, FileText } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,11 +14,13 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
+import { parseLegacyTxt, importLegacyData } from "@/features/import/importLegacy"
 
 export default function Settings() {
     const categories = useLiveQuery(() => db.categories.toArray()) || []
     const [newCatName, setNewCatName] = useState("")
     const [newCatType, setNewCatType] = useState<"income" | "expense">("expense")
+    const [importing, setImporting] = useState(false)
 
     // ---- 分类管理 ----
     async function addCategory() {
@@ -126,6 +128,39 @@ export default function Settings() {
         }
     }
 
+    // ---- 导入历史账单 (TXT) ----
+    async function importLegacyTxt() {
+        const input = document.createElement("input")
+        input.type = "file"
+        input.accept = ".txt"
+        input.onchange = async (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0]
+            if (!file) return
+
+            try {
+                setImporting(true)
+                const text = await file.text()
+                const parsed = parseLegacyTxt(text)
+
+                if (parsed.length === 0) {
+                    alert("未找到有效的交易记录，请检查文件格式")
+                    return
+                }
+
+                if (!confirm(`解析到 ${parsed.length} 条交易记录，确定导入？`)) return
+
+                const result = await importLegacyData(parsed)
+                alert(`导入完成！\n✅ 导入 ${result.imported} 条交易\n📂 新建 ${result.categoriesCreated} 个分类`)
+            } catch (error) {
+                console.error("Legacy import failed:", error)
+                alert("导入失败：" + (error instanceof Error ? error.message : "未知错误"))
+            } finally {
+                setImporting(false)
+            }
+        }
+        input.click()
+    }
+
     const expenseCategories = categories.filter(c => c.type === "expense")
     const incomeCategories = categories.filter(c => c.type === "income")
 
@@ -222,7 +257,16 @@ export default function Settings() {
                     </Button>
                     <Button variant="outline" className="w-full justify-start" onClick={importData}>
                         <Upload className="mr-2 h-4 w-4" />
-                        导入数据
+                        导入数据 (JSON 备份)
+                    </Button>
+                    <Button
+                        variant="outline"
+                        className="w-full justify-start"
+                        onClick={importLegacyTxt}
+                        disabled={importing}
+                    >
+                        <FileText className="mr-2 h-4 w-4" />
+                        {importing ? "导入中..." : "导入历史账单 (TXT)"}
                     </Button>
                     <Button variant="destructive" className="w-full justify-start" onClick={clearAllData}>
                         <Trash2 className="mr-2 h-4 w-4" />
