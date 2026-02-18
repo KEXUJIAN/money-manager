@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { db } from "@/db"
 import { Download, Upload, Trash2, FileText, Database, AlertTriangle } from "lucide-react"
+import { LEGACY_TXT_DELIMITER, LEGACY_TXT_HEADER } from "@/lib/constants"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -53,8 +54,7 @@ export function DataManagementDialog() {
             const transactions = await db.transactions.toArray()
             const categories = await db.categories.toArray()
 
-            // 简单实现：格式化为 \u0001 分隔
-            const lines = ["记账日期\u0001消费类别\u0001消费详情\u0001消费金额\u0001消费备注"]
+            const lines = [LEGACY_TXT_HEADER]
             const categoryMap = new Map()
             categories.forEach(c => categoryMap.set(c.id, c.name))
 
@@ -77,7 +77,7 @@ export function DataManagementDialog() {
                 const amount = tx.type === 'expense' ? -tx.amount : tx.amount
                 const note = tx.note || ""
 
-                lines.push(`${dateStr}\u0001${typeStr}\u0001${catName}\u0001${amount.toFixed(2)}\u0001${note}`)
+                lines.push([dateStr, typeStr, catName, amount.toFixed(2), note].join(LEGACY_TXT_DELIMITER))
             })
 
             const content = lines.join("\n")

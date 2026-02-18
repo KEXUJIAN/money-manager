@@ -1,5 +1,6 @@
 import { db } from "@/db"
 import { v4 as uuidv4 } from "uuid"
+import { LEGACY_TXT_DELIMITER } from "@/lib/constants"
 
 export interface ParsedTransaction {
     date: Date
@@ -25,8 +26,7 @@ export function parseLegacyTxt(text: string): ParsedTransaction[] {
         // 跳过表头
         if (line.startsWith("记账日期")) continue
 
-        // WHY: 用户的数据使用 SOH (\u0001) 作为字段分隔符
-        const parts = line.split("\u0001").map(s => s.trim())
+        const parts = line.split(LEGACY_TXT_DELIMITER).map(s => s.trim())
         if (parts.length < 4) {
             console.warn(`跳过第 ${i + 1} 行（列数不足）:`, line)
             continue

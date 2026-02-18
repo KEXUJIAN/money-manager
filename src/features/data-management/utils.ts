@@ -1,4 +1,5 @@
 import type { Transaction, Category } from "@/db"
+import { LEGACY_TXT_DELIMITER, LEGACY_TXT_HEADER } from "@/lib/constants"
 
 /**
  * 格式化日期为 YYYY-MM-DD HH:mm
@@ -18,7 +19,7 @@ function formatDate(timestamp: number): string {
  * 格式：记账日期 \u0001 消费类别 \u0001 消费详情 \u0001 消费金额 \u0001 消费备注
  */
 export function generateLegacyTxt(transactions: Transaction[], categories: Category[]): string {
-    const lines = ["记账日期\u0001消费类别\u0001消费详情\u0001消费金额\u0001消费备注"]
+    const lines = [LEGACY_TXT_HEADER]
     const categoryMap = new Map<string, string>()
 
     categories.forEach(c => {
@@ -29,11 +30,6 @@ export function generateLegacyTxt(transactions: Transaction[], categories: Categ
         const dateStr = formatDate(tx.date)
         const typeStr = tx.type === 'expense' ? '支出' : (tx.type === 'income' ? '收入' : '转账')
 
-        // 假如是转账，暂时按支出处理或跳过？旧格式似乎没有转账。
-        // Milestone 0.1 legacy import handles income/expense. Transfer might not be supported in legacy format.
-        // We will map transfer to '支出' for now or '转账' if we update the parser, but let's stick to income/expense if possible.
-        // Actually, let's export it as is.
-
         const categoryName = (tx.categoryId ? categoryMap.get(tx.categoryId) : "") || "其他"
 
         // 金额：支出为负数，收入为正数
@@ -42,8 +38,7 @@ export function generateLegacyTxt(transactions: Transaction[], categories: Categ
 
         const note = tx.note || ""
 
-        // 使用 Unicode SOH (\u0001) 分隔
-        lines.push(`${dateStr}\u0001${typeStr}\u0001${categoryName}\u0001${amountStr}\u0001${note}`)
+        lines.push([dateStr, typeStr, categoryName, amountStr, note].join(LEGACY_TXT_DELIMITER))
     })
 
     return lines.join("\n")
