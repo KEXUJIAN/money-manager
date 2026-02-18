@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useRef, useEffect } from "react"
 import { format } from "date-fns"
 import { CalendarIcon, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
@@ -10,18 +10,63 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
 
 interface DateTimePickerProps {
     value: Date
     onChange: (date: Date) => void
     className?: string
+}
+
+/**
+ * 内联时间滚动选择器（不使用 Select Portal，避免 z-index 冲突）
+ */
+function TimeScroller({
+    items,
+    value,
+    onChange,
+    label,
+}: {
+    items: string[]
+    value: string
+    onChange: (v: string) => void
+    label: string
+}) {
+    const containerRef = useRef<HTMLDivElement>(null)
+
+    // 滚动到选中项
+    useEffect(() => {
+        if (!containerRef.current) return
+        const idx = items.indexOf(value)
+        if (idx >= 0) {
+            const el = containerRef.current.children[idx] as HTMLElement
+            el?.scrollIntoView({ block: "center", behavior: "instant" })
+        }
+    }, [value, items])
+
+    return (
+        <div className="flex flex-col items-center">
+            <span className="text-[10px] text-muted-foreground mb-1">{label}</span>
+            <div
+                ref={containerRef}
+                className="h-[140px] w-[52px] overflow-y-auto rounded-md border bg-background scrollbar-thin"
+            >
+                {items.map(item => (
+                    <button
+                        key={item}
+                        type="button"
+                        className={cn(
+                            "w-full py-1 text-center text-sm transition-colors",
+                            "hover:bg-accent hover:text-accent-foreground",
+                            value === item && "bg-primary text-primary-foreground font-medium"
+                        )}
+                        onClick={() => onChange(item)}
+                    >
+                        {item}
+                    </button>
+                ))}
+            </div>
+        </div>
+    )
 }
 
 export function DateTimePicker({ value, onChange, className }: DateTimePickerProps) {
@@ -65,7 +110,7 @@ export function DateTimePicker({ value, onChange, className }: DateTimePickerPro
     }
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
+        <Popover open={open} onOpenChange={setOpen} modal>
             <PopoverTrigger asChild>
                 <Button
                     variant="outline"
@@ -78,45 +123,42 @@ export function DateTimePicker({ value, onChange, className }: DateTimePickerPro
                     {format(value, "yyyy-MM-dd HH:mm")}
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-                {/* 日历区域 */}
-                <Calendar
-                    mode="single"
-                    selected={value}
-                    onSelect={handleDateSelect}
-                    initialFocus
-                />
-                {/* 时间选择区域 */}
-                <div className="border-t px-3 py-3 flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-muted-foreground" />
-                    <Select value={currentHour} onValueChange={handleHourChange}>
-                        <SelectTrigger className="w-[70px] h-8">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[200px]">
-                            {hours.map(h => (
-                                <SelectItem key={h} value={h}>{h}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                    <span className="text-muted-foreground font-medium">:</span>
-                    <Select value={currentMinute} onValueChange={handleMinuteChange}>
-                        <SelectTrigger className="w-[70px] h-8">
-                            <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[200px]">
-                            {minutes.map(m => (
-                                <SelectItem key={m} value={m}>{m}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+            <PopoverContent className="z-[200] w-auto p-0" align="start">
+                <div className="flex">
+                    {/* 日历区域 */}
+                    <Calendar
+                        mode="single"
+                        selected={value}
+                        onSelect={handleDateSelect}
+                        initialFocus
+                    />
+                    {/* 时间选择区域（内联滚动列表） */}
+                    <div className="border-l px-2 py-3 flex items-start gap-1 pt-4">
+                        <Clock className="h-4 w-4 text-muted-foreground mt-5 mr-1" />
+                        <TimeScroller
+                            items={hours}
+                            value={currentHour}
+                            onChange={handleHourChange}
+                            label="时"
+                        />
+                        <span className="text-muted-foreground font-medium mt-[76px]">:</span>
+                        <TimeScroller
+                            items={minutes}
+                            value={currentMinute}
+                            onChange={handleMinuteChange}
+                            label="分"
+                        />
+                    </div>
+                </div>
+                {/* 底部操作栏 */}
+                <div className="border-t px-3 py-2 flex justify-end">
                     <Button
                         variant="ghost"
                         size="sm"
-                        className="ml-auto h-8 text-xs"
+                        className="h-7 text-xs"
                         onClick={handleNow}
                     >
-                        现在
+                        回到现在
                     </Button>
                 </div>
             </PopoverContent>
