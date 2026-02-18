@@ -26,7 +26,10 @@ export function generateLegacyTxt(transactions: Transaction[], categories: Categ
         categoryMap.set(c.id, c.name)
     })
 
-    transactions.forEach(tx => {
+    // 按时间升序排列（最早 → 最新）
+    const sorted = [...transactions].sort((a, b) => a.date - b.date)
+
+    sorted.forEach(tx => {
         const dateStr = formatDate(tx.date)
         const typeStr = tx.type === 'expense' ? '支出' : (tx.type === 'income' ? '收入' : '转账')
 

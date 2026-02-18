@@ -52,6 +52,8 @@ export function DataManagementDialog() {
     async function exportTxt() {
         try {
             const transactions = await db.transactions.toArray()
+            // 按时间升序排列（最早 → 最新）
+            transactions.sort((a, b) => a.date - b.date)
             const categories = await db.categories.toArray()
 
             const lines = [LEGACY_TXT_HEADER]
