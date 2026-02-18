@@ -1,6 +1,9 @@
 # 架构设计文档
 
-> 创建于 2026-02 · 里程碑 v0.1
+| 版本 | 日期    | 变更说明                                                 |
+| ---- | ------- | -------------------------------------------------------- |
+| v0.1 | 2026-02 | 初始创建                                                 |
+| v0.2 | 2026-02 | 新增 data-management 模块、lib/constants、CSS hsl() 变量 |
 
 ## 设计目标
 
@@ -8,17 +11,17 @@ Web 优先的跨平台个人记账应用，优先级：**Web > PC > Android > iO
 
 ## 技术选型
 
-| 层级 | 选型 | 选型理由 |
-|------|------|----------|
-| 前端框架 | React 19 + TypeScript | 生态最强，函数式心智模型 |
-| 构建 | Vite 7 | 极速 HMR，ESM 原生支持 |
-| UI | Shadcn/UI + Tailwind CSS 4 | 精美可控，无运行时开销 |
-| 数据库 | Dexie.js (IndexedDB) | 异步、GB 级容量，Web/Tauri/Capacitor 通用 |
-| 图表 | Recharts | React 生态最成熟的 SVG 图表库 |
-| 表单 | react-hook-form + Zod | 轻量、类型安全 |
-| 路由 | React Router v7 | 稳定、社区大 |
-| 桌面端 | Tauri v2 | 比 Electron 轻量 10 倍，使用系统 WebView |
-| 移动端 | Capacitor（预留） | 可将 Web App 直接包装成 APK |
+| 层级     | 选型                       | 选型理由                                  |
+| -------- | -------------------------- | ----------------------------------------- |
+| 前端框架 | React 19 + TypeScript      | 生态最强，函数式心智模型                  |
+| 构建     | Vite 7                     | 极速 HMR，ESM 原生支持                    |
+| UI       | Shadcn/UI + Tailwind CSS 4 | 精美可控，无运行时开销                    |
+| 数据库   | Dexie.js (IndexedDB)       | 异步、GB 级容量，Web/Tauri/Capacitor 通用 |
+| 图表     | Recharts                   | React 生态最成熟的 SVG 图表库             |
+| 表单     | react-hook-form + Zod      | 轻量、类型安全                            |
+| 路由     | React Router v7            | 稳定、社区大                              |
+| 桌面端   | Tauri v2                   | 比 Electron 轻量 10 倍，使用系统 WebView  |
+| 移动端   | Capacitor（预留）          | 可将 Web App 直接包装成 APK               |
 
 ## 目录结构
 
@@ -30,13 +33,14 @@ src/
 │   └── seed.ts         # 内置分类（31 支出 + 27 收入）+ 默认账户
 ├── features/           # 业务功能模块
 │   ├── accounts/       # 账户管理 — AccountCard, AccountList, AccountFormSheet
+│   ├── data-management/ # 数据管理 — 导入/导出/清空 (JSON + TXT)
 │   ├── import/         # 历史数据导入 — TXT 解析器 (SOH 分隔)
 │   ├── stats/          # 统计 — MonthlyOverview, DailyChart, CategoryBreakdown
 │   └── transactions/   # 交易 — AddTransactionSheet, TransactionList
 ├── layouts/            # AppLayout — 响应式侧边栏(桌面) / 底栏(移动)
-├── lib/                # 工具函数 (cn)
+├── lib/                # 工具函数 (cn) + 共享常量 (constants.ts)
 ├── routes/             # 页面路由 — Home, Stats, Settings
-├── index.css           # 全局主题（蓝色主色、渐变、自定义滚动条）
+├── index.css           # 全局主题 (hsl 变量、渐变、自定义滚动条)
 └── main.tsx            # 入口 + 数据库 seed
 ```
 
