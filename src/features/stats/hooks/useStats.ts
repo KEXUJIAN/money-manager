@@ -1,16 +1,17 @@
+
 import { useLiveQuery } from "dexie-react-hooks"
 import { db } from "@/db"
 import {
-    startOfMonth,
-    endOfMonth,
     eachDayOfInterval,
     format,
 } from "date-fns"
+import type { DateRange } from "../utils"
 
 export interface DailyData {
-    date: string        // "MM/dd"
+    date: string        // "MM/dd" or "yyyy-MM-dd" depending on range?
     income: number
     expense: number
+    timestamp: number   // for sorting
 }
 
 export interface CategoryData {
@@ -19,7 +20,7 @@ export interface CategoryData {
     color: string
 }
 
-export interface MonthlyStats {
+export interface StatsData {
     totalIncome: number
     totalExpense: number
     balance: number
@@ -34,15 +35,15 @@ const COLORS = [
     "#3b82f6", "#8b5cf6", "#ec4899", "#64748b", "#14b8a6",
 ]
 
-export function useMonthlyStats(monthDate: Date): MonthlyStats | undefined {
+export function useStats(dateRange: DateRange): StatsData | undefined {
     return useLiveQuery(async () => {
-        const monthStart = startOfMonth(monthDate).getTime()
-        const monthEnd = endOfMonth(monthDate).getTime()
+        const start = dateRange.start.getTime()
+        const end = dateRange.end.getTime()
 
-        // 获取当月所有交易
+        // 获取范围内所有交易
         const transactions = await db.transactions
             .where("date")
-            .between(monthStart, monthEnd, true, true)
+            .between(start, end, true, true)
             .toArray()
 
         // 获取所有分类用于名称映射
@@ -77,24 +78,55 @@ export function useMonthlyStats(monthDate: Date): MonthlyStats | undefined {
                 }
             }
 
-            const dayKey = format(tx.date, "MM/dd")
+            // 使用 timestamp 作为 key 以便于后续排序和格式化
+            // 为了简化，我们按天归档。对于“全部”或“年”视图，可能需要按月归档？
+            // 需求说“日、周、月、年、全部”。
+            // 如果范围很大（比如全部），dailyData 可能会很多点。但 Recharts 应该能处理。
+            // 暂时统一按天。
+            const dayKey = format(tx.date, "yyyy-MM-dd")
             const existing = dailyMap.get(dayKey) || { income: 0, expense: 0 }
             if (tx.type === "income") existing.income += tx.amount
             if (tx.type === "expense") existing.expense += tx.amount
             dailyMap.set(dayKey, existing)
         }
 
-        // 填充当月每一天（即使没数据也显示）
-        const days = eachDayOfInterval({ start: startOfMonth(monthDate), end: endOfMonth(monthDate) })
-        const dailyData: DailyData[] = days.map(day => {
-            const key = format(day, "MM/dd")
-            const data = dailyMap.get(key)
-            return {
-                date: key,
-                income: data?.income || 0,
-                expense: data?.expense || 0,
+        // 填充每一天（如果范围太大可能性能有问题，但在 indexeddb 本地应用应该还可以）
+        // 如果是 'all'，start 是 0，end 是 huge。不要生成 intervening days unless range is reasonable.
+        // 如果 range > 365 days，也许只显示有数据的 days? 或者按月聚合?
+        // 简单起见，如果它是 "all" 或 "year"，我们只显示有数据的日子，或者按月聚合。
+        // 为了 milestone 0.2，先简单实现：总是按天，对于 'all' 可能比较密集。
+        // 但 eachDayOfInterval on huge range will crash.
+
+        let dailyData: DailyData[] = []
+        const daysDiff = (end - start) / (1000 * 60 * 60 * 24)
+
+        if (daysDiff > 365 * 5) { // 超过 5 年
+            // 只返回有数据的点，排序
+            dailyData = Array.from(dailyMap.entries()).map(([dateStr, val]) => ({
+                date: dateStr,
+                income: val.income,
+                expense: val.expense,
+                timestamp: new Date(dateStr).getTime()
+            })).sort((a, b) => a.timestamp - b.timestamp)
+        } else {
+            // 正常填充
+            try {
+                const days = eachDayOfInterval({ start: dateRange.start, end: dateRange.end })
+                dailyData = days.map(day => {
+                    const key = format(day, "yyyy-MM-dd")
+                    const data = dailyMap.get(key)
+                    return {
+                        date: format(day, "MM/dd"),
+                        income: data?.income || 0,
+                        expense: data?.expense || 0,
+                        timestamp: day.getTime()
+                    }
+                })
+            } catch (e) {
+                // Fallback for extreme cases
+                dailyData = []
             }
-        })
+        }
 
         // 转换分类数据
         const expenseByCategory: CategoryData[] = Array.from(expenseCategoryMap.entries())
@@ -121,5 +153,5 @@ export function useMonthlyStats(monthDate: Date): MonthlyStats | undefined {
             expenseByCategory,
             incomeByCategory,
         }
-    }, [monthDate])
+    }, [dateRange.start.getTime(), dateRange.end.getTime()]) // Use timestamp to avoid deep compare issues if object ref changes
 }
