@@ -14,7 +14,7 @@ export default function AppLayout() {
     return (
         <div className="flex h-screen w-full bg-background text-foreground">
             {/* Desktop Sidebar */}
-            <aside className="hidden md:flex w-64 flex-col bg-[hsl(var(--sidebar))] border-r z-50">
+            <aside className="hidden md:flex w-64 flex-col bg-[var(--sidebar)] border-r z-40">
                 {/* Logo 区域 */}
                 <div className="p-6 pb-2">
                     <div className="flex items-center gap-3">
