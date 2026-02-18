@@ -1,4 +1,4 @@
-import { useEffect } from "react"
+import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
@@ -7,6 +7,7 @@ import { db } from "@/db"
 import type { Account } from "@/db"
 
 import { Button } from "@/components/ui/button"
+import { ConfirmationModal } from "@/components/ui/confirmation-modal"
 import {
     Sheet,
     SheetContent,
@@ -78,6 +79,8 @@ export function AccountFormSheet({ open, onOpenChange, account }: AccountFormShe
         }
     }, [account, form, open])
 
+    const [deleteConfirmationOpen, setDeleteConfirmationOpen] = useState(false)
+
     async function onSubmit(values: FormValues) {
         try {
             if (account) {
@@ -101,19 +104,18 @@ export function AccountFormSheet({ open, onOpenChange, account }: AccountFormShe
 
     async function handleDelete() {
         if (!account) return
-        if (confirm("Are you sure you want to delete this account?")) {
-            await db.accounts.delete(account.id)
-            onOpenChange(false)
-        }
+        await db.accounts.delete(account.id)
+        setDeleteConfirmationOpen(false)
+        onOpenChange(false)
     }
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
             <SheetContent>
                 <SheetHeader>
-                    <SheetTitle>{account ? "Edit Account" : "Add Account"}</SheetTitle>
+                    <SheetTitle>{account ? "编辑账户" : "添加账户"}</SheetTitle>
                     <SheetDescription>
-                        {account ? "Update account details." : "Create a new account to track your balance."}
+                        {account ? "更新账户详情" : "创建新账户以追踪余额"}
                     </SheetDescription>
                 </SheetHeader>
                 <Form {...form}>
@@ -123,9 +125,9 @@ export function AccountFormSheet({ open, onOpenChange, account }: AccountFormShe
                             name="name"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Name</FormLabel>
+                                    <FormLabel>账户名称</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="e.g. Cash Wallet" {...field} />
+                                        <Input placeholder="例如：现金钱包" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -136,20 +138,20 @@ export function AccountFormSheet({ open, onOpenChange, account }: AccountFormShe
                             name="type"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Type</FormLabel>
+                                    <FormLabel>账户类型</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                         <FormControl>
                                             <SelectTrigger>
-                                                <SelectValue placeholder="Select account type" />
+                                                <SelectValue placeholder="选择账户类型" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value="cash">Cash</SelectItem>
-                                            <SelectItem value="bank">Bank</SelectItem>
-                                            <SelectItem value="alipay">Alipay</SelectItem>
-                                            <SelectItem value="wechat">WeChat</SelectItem>
-                                            <SelectItem value="credit_card">Credit Card</SelectItem>
-                                            <SelectItem value="other">Other</SelectItem>
+                                            <SelectItem value="cash">现金</SelectItem>
+                                            <SelectItem value="bank">银行卡</SelectItem>
+                                            <SelectItem value="alipay">支付宝</SelectItem>
+                                            <SelectItem value="wechat">微信</SelectItem>
+                                            <SelectItem value="credit_card">信用卡</SelectItem>
+                                            <SelectItem value="other">其他</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <FormMessage />
@@ -161,7 +163,7 @@ export function AccountFormSheet({ open, onOpenChange, account }: AccountFormShe
                             name="balance"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Current Balance</FormLabel>
+                                    <FormLabel>当前余额</FormLabel>
                                     <FormControl>
                                         <Input type="number" step="0.01" {...field} />
                                     </FormControl>
@@ -171,16 +173,26 @@ export function AccountFormSheet({ open, onOpenChange, account }: AccountFormShe
                         />
                         <div className="flex gap-2">
                             <Button type="submit" className="flex-1">
-                                {account ? "Save Changes" : "Create Account"}
+                                {account ? "保存修改" : "创建账户"}
                             </Button>
                             {account && (
-                                <Button type="button" variant="destructive" size="icon" onClick={handleDelete}>
+                                <Button type="button" variant="destructive" size="icon" onClick={() => setDeleteConfirmationOpen(true)}>
                                     <Trash2 className="h-4 w-4" />
                                 </Button>
                             )}
                         </div>
                     </form>
                 </Form>
+
+                <ConfirmationModal
+                    open={deleteConfirmationOpen}
+                    onOpenChange={setDeleteConfirmationOpen}
+                    title="确定删除此账户？"
+                    description="此操作不可撤销，账户下的所有交易也将被删除。"
+                    confirmText="删除"
+                    onConfirm={handleDelete}
+                    variant="destructive"
+                />
             </SheetContent>
         </Sheet>
     )

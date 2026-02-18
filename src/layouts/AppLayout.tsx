@@ -14,7 +14,7 @@ export default function AppLayout() {
     return (
         <div className="flex h-screen w-full bg-background text-foreground">
             {/* Desktop Sidebar */}
-            <aside className="hidden md:flex w-64 flex-col bg-[hsl(var(--sidebar))] border-r">
+            <aside className="hidden md:flex w-64 flex-col bg-[hsl(var(--sidebar))] border-r z-50">
                 {/* Logo 区域 */}
                 <div className="p-6 pb-2">
                     <div className="flex items-center gap-3">
@@ -22,8 +22,8 @@ export default function AppLayout() {
                             <span className="text-primary-foreground font-bold text-sm">¥</span>
                         </div>
                         <div>
-                            <h1 className="text-lg font-bold tracking-tight">Money Manager</h1>
-                            <p className="text-xs text-muted-foreground">Personal Finance</p>
+                            <h1 className="text-lg font-bold tracking-tight">个人记账</h1>
+                            <p className="text-xs text-muted-foreground">个人财务</p>
                         </div>
                     </div>
                 </div>
@@ -36,7 +36,7 @@ export default function AppLayout() {
                             <Link to={item.path} key={item.path}>
                                 <div
                                     className={cn(
-                                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                                        "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 cursor-pointer",
                                         isActive
                                             ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
                                             : "text-muted-foreground hover:text-foreground hover:bg-accent"
@@ -52,7 +52,7 @@ export default function AppLayout() {
 
                 {/* 底部版本信息 */}
                 <div className="p-4 border-t">
-                    <p className="text-xs text-muted-foreground text-center">v0.1.0</p>
+                    <p className="text-xs text-muted-foreground text-center">v0.1.1</p>
                 </div>
             </aside>
 
@@ -64,7 +64,7 @@ export default function AppLayout() {
                         <div className="h-7 w-7 rounded-lg bg-primary flex items-center justify-center">
                             <span className="text-primary-foreground font-bold text-xs">¥</span>
                         </div>
-                        <h1 className="font-semibold text-sm">Money Manager</h1>
+                        <h1 className="font-semibold text-sm">个人记账</h1>
                     </div>
                 </header>
 
