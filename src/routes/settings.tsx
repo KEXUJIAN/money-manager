@@ -1,8 +1,9 @@
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { db } from "@/db"
 import { useLiveQuery } from "dexie-react-hooks"
 import { v4 as uuidv4 } from "uuid"
-import { Trash2, Plus, ChevronDown, ChevronRight } from "lucide-react"
+import { Trash2, Plus, ChevronDown, ChevronRight, Search } from "lucide-react"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,23 +27,67 @@ export default function Settings() {
     const [expenseOpen, setExpenseOpen] = useState(false)
     const [incomeOpen, setIncomeOpen] = useState(false)
 
+    // 搜索过滤状态
+    const [expenseSearch, setExpenseSearch] = useState("")
+    const [incomeSearch, setIncomeSearch] = useState("")
+
     // 删除确认弹窗状态
     const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
 
+    const expenseCategories = useMemo(
+        () => categories.filter(c => c.type === "expense"),
+        [categories]
+    )
+    const incomeCategories = useMemo(
+        () => categories.filter(c => c.type === "income"),
+        [categories]
+    )
+
+    // 搜索过滤后的列表
+    const filteredExpense = useMemo(
+        () => expenseSearch
+            ? expenseCategories.filter(c => c.name.includes(expenseSearch))
+            : expenseCategories,
+        [expenseCategories, expenseSearch]
+    )
+    const filteredIncome = useMemo(
+        () => incomeSearch
+            ? incomeCategories.filter(c => c.name.includes(incomeSearch))
+            : incomeCategories,
+        [incomeCategories, incomeSearch]
+    )
+
     // ---- 分类管理 ----
     async function addCategory() {
-        if (!newCatName.trim()) return
+        const name = newCatName.trim()
+
+        // 空值校验
+        if (!name) {
+            toast.error("分类名称不能为空")
+            return
+        }
+
+        // 同类型防重校验
+        const sameTypeList = newCatType === "expense" ? expenseCategories : incomeCategories
+        const duplicated = sameTypeList.some(c => c.name === name)
+        if (duplicated) {
+            toast.error(`「${name}」已存在，请更换名称`)
+            return
+        }
+
         try {
             await db.categories.add({
                 id: uuidv4(),
-                name: newCatName.trim(),
+                name,
                 type: newCatType,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),
             })
             setNewCatName("")
+            toast.success(`分类「${name}」添加成功`)
         } catch (error) {
             console.error("添加分类失败:", error)
+            toast.error("添加分类失败，请重试")
         }
     }
 
@@ -50,14 +95,13 @@ export default function Settings() {
         if (!deleteTarget) return
         try {
             await db.categories.delete(deleteTarget)
+            toast.success("分类已删除")
         } catch (error) {
             console.error("删除分类失败:", error)
+            toast.error("删除分类失败")
         }
         setDeleteTarget(null)
     }
-
-    const expenseCategories = categories.filter(c => c.type === "expense")
-    const incomeCategories = categories.filter(c => c.type === "income")
 
     return (
         <div className="space-y-6">
@@ -108,37 +152,45 @@ export default function Settings() {
                                 <span className="text-xs text-muted-foreground">({expenseCategories.length})</span>
                             </div>
                         </button>
-                        <div
-                            className="transition-all duration-200 ease-in-out overflow-hidden"
-                            style={{
-                                maxHeight: expenseOpen ? `${expenseCategories.length * 44 + 16}px` : '0px',
-                                opacity: expenseOpen ? 1 : 0,
-                            }}
-                        >
-                            <div className="px-3 pb-2 space-y-1">
-                                {expenseCategories.map(cat => (
-                                    <div key={cat.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm">{cat.name}</span>
-                                            {cat.isBuiltin && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">内置</span>}
+                        {expenseOpen && (
+                            <div className="px-3 pb-2 space-y-2 border-t">
+                                {/* 搜索框 */}
+                                <div className="flex items-center gap-2 pt-2">
+                                    <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                                    <Input
+                                        placeholder="搜索支出分类..."
+                                        value={expenseSearch}
+                                        onChange={e => setExpenseSearch(e.target.value)}
+                                        className="h-8 text-sm"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    {filteredExpense.map(cat => (
+                                        <div key={cat.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm">{cat.name}</span>
+                                                {cat.isBuiltin && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">内置</span>}
+                                            </div>
+                                            {!cat.isBuiltin && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7"
+                                                    onClick={() => setDeleteTarget(cat.id)}
+                                                >
+                                                    <Trash2 className="h-3 w-3 text-muted-foreground" />
+                                                </Button>
+                                            )}
                                         </div>
-                                        {!cat.isBuiltin && (
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-7 w-7"
-                                                onClick={() => setDeleteTarget(cat.id)}
-                                            >
-                                                <Trash2 className="h-3 w-3 text-muted-foreground" />
-                                            </Button>
-                                        )}
-                                    </div>
-                                ))}
-                                {expenseCategories.length === 0 && (
-                                    <p className="text-sm text-muted-foreground py-2">暂无支出分类</p>
-                                )}
+                                    ))}
+                                    {filteredExpense.length === 0 && (
+                                        <p className="text-sm text-muted-foreground py-2">
+                                            {expenseSearch ? "无匹配项" : "暂无支出分类"}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* 收入分类列表（折叠面板） */}
@@ -157,37 +209,45 @@ export default function Settings() {
                                 <span className="text-xs text-muted-foreground">({incomeCategories.length})</span>
                             </div>
                         </button>
-                        <div
-                            className="transition-all duration-200 ease-in-out overflow-hidden"
-                            style={{
-                                maxHeight: incomeOpen ? `${incomeCategories.length * 44 + 16}px` : '0px',
-                                opacity: incomeOpen ? 1 : 0,
-                            }}
-                        >
-                            <div className="px-3 pb-2 space-y-1">
-                                {incomeCategories.map(cat => (
-                                    <div key={cat.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50">
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-sm">{cat.name}</span>
-                                            {cat.isBuiltin && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">内置</span>}
+                        {incomeOpen && (
+                            <div className="px-3 pb-2 space-y-2 border-t">
+                                {/* 搜索框 */}
+                                <div className="flex items-center gap-2 pt-2">
+                                    <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+                                    <Input
+                                        placeholder="搜索收入分类..."
+                                        value={incomeSearch}
+                                        onChange={e => setIncomeSearch(e.target.value)}
+                                        className="h-8 text-sm"
+                                    />
+                                </div>
+                                <div className="space-y-1">
+                                    {filteredIncome.map(cat => (
+                                        <div key={cat.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50">
+                                            <div className="flex items-center gap-2">
+                                                <span className="text-sm">{cat.name}</span>
+                                                {cat.isBuiltin && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">内置</span>}
+                                            </div>
+                                            {!cat.isBuiltin && (
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-7 w-7"
+                                                    onClick={() => setDeleteTarget(cat.id)}
+                                                >
+                                                    <Trash2 className="h-3 w-3 text-muted-foreground" />
+                                                </Button>
+                                            )}
                                         </div>
-                                        {!cat.isBuiltin && (
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="h-7 w-7"
-                                                onClick={() => setDeleteTarget(cat.id)}
-                                            >
-                                                <Trash2 className="h-3 w-3 text-muted-foreground" />
-                                            </Button>
-                                        )}
-                                    </div>
-                                ))}
-                                {incomeCategories.length === 0 && (
-                                    <p className="text-sm text-muted-foreground py-2">暂无收入分类</p>
-                                )}
+                                    ))}
+                                    {filteredIncome.length === 0 && (
+                                        <p className="text-sm text-muted-foreground py-2">
+                                            {incomeSearch ? "无匹配项" : "暂无收入分类"}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
-                        </div>
+                        )}
                     </div>
                 </CardContent>
             </Card>
@@ -209,7 +269,7 @@ export default function Settings() {
             <Card>
                 <CardContent className="pt-6">
                     <p className="text-sm text-muted-foreground text-center">
-                        Money Manager v0.3.0
+                        Money Manager v0.3.1
                     </p>
                 </CardContent>
             </Card>
