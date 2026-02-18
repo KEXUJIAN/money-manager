@@ -26,41 +26,30 @@ import {
     FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { SearchableSelect } from "@/components/ui/searchable-select"
+import { DateTimePicker } from "@/components/ui/date-time-picker"
+
+/**
+ * 获取当前时间（秒归零）
+ */
+function getNow(): Date {
+    const now = new Date()
+    now.setSeconds(0, 0)
+    return now
+}
 
 const formSchema = z.object({
     amount: z.coerce.number().min(0.01, "金额必须大于 0"),
     type: z.enum(['income', 'expense']),
     accountId: z.string().min(1, "请选择账户"),
     categoryId: z.string().min(1, "请选择分类"),
-    date: z.string().min(1, "请选择日期"),
+    date: z.date(),
     note: z.string().optional(),
 })
 
 type FormValues = z.infer<typeof formSchema>
-
-/**
- * 获取当前时间的 datetime-local 格式字符串（秒归零）
- * 格式：YYYY-MM-DDTHH:mm
- */
-function getNowDatetimeLocal(): string {
-    const now = new Date()
-    now.setSeconds(0, 0)
-    const year = now.getFullYear()
-    const month = String(now.getMonth() + 1).padStart(2, '0')
-    const day = String(now.getDate()).padStart(2, '0')
-    const hours = String(now.getHours()).padStart(2, '0')
-    const minutes = String(now.getMinutes()).padStart(2, '0')
-    return `${year}-${month}-${day}T${hours}:${minutes}`
-}
 
 export function AddTransactionSheet() {
     const [open, setOpen] = useState(false)
@@ -74,6 +63,16 @@ export function AddTransactionSheet() {
         [categories, activeTab]
     )
 
+    const accountOptions = useMemo(
+        () => accounts.map(a => ({ value: a.id, label: a.name })),
+        [accounts]
+    )
+
+    const categoryOptions = useMemo(
+        () => filteredCategories.map(c => ({ value: c.id, label: c.name })),
+        [filteredCategories]
+    )
+
     const form = useForm<FormValues>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         resolver: zodResolver(formSchema) as any, // any 理由：zodResolver 与 react-hook-form 泛型不完全兼容
@@ -82,7 +81,7 @@ export function AddTransactionSheet() {
             type: "expense",
             accountId: "",
             categoryId: "",
-            date: getNowDatetimeLocal(),
+            date: getNow(),
             note: "",
         },
     })
@@ -90,7 +89,7 @@ export function AddTransactionSheet() {
     // 打开侧边栏时，重置时间为当前时间
     useEffect(() => {
         if (open) {
-            form.setValue("date", getNowDatetimeLocal())
+            form.setValue("date", getNow())
         }
     }, [open, form])
 
@@ -121,7 +120,7 @@ export function AddTransactionSheet() {
         try {
             const transactionId = uuidv4()
 
-            // 解析 datetime-local 字符串并强制秒归零
+            // 强制秒归零
             const dateObj = new Date(values.date)
             dateObj.setSeconds(0, 0)
 
@@ -161,7 +160,7 @@ export function AddTransactionSheet() {
                 type: activeTab as "income" | "expense",
                 accountId: values.accountId, // 保留上次使用的账户
                 categoryId: "",
-                date: getNowDatetimeLocal(),
+                date: getNow(),
                 note: "",
             })
         } catch (error) {
@@ -215,18 +214,15 @@ export function AddTransactionSheet() {
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>账户</FormLabel>
-                                    <Select value={field.value} onValueChange={field.onChange}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="选择账户" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {accounts.map(acc => (
-                                                <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <FormControl>
+                                        <SearchableSelect
+                                            options={accountOptions}
+                                            value={field.value}
+                                            onValueChange={field.onChange}
+                                            placeholder="选择账户"
+                                            searchPlaceholder="搜索账户..."
+                                        />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -238,18 +234,15 @@ export function AddTransactionSheet() {
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>分类</FormLabel>
-                                    <Select value={field.value} onValueChange={field.onChange}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="选择分类" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {filteredCategories.map(cat => (
-                                                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <FormControl>
+                                        <SearchableSelect
+                                            options={categoryOptions}
+                                            value={field.value}
+                                            onValueChange={field.onChange}
+                                            placeholder="选择分类"
+                                            searchPlaceholder="搜索分类..."
+                                        />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -262,10 +255,9 @@ export function AddTransactionSheet() {
                                 <FormItem>
                                     <FormLabel>日期时间</FormLabel>
                                     <FormControl>
-                                        <Input
-                                            type="datetime-local"
-                                            step="60"
-                                            {...field}
+                                        <DateTimePicker
+                                            value={field.value}
+                                            onChange={field.onChange}
                                         />
                                     </FormControl>
                                     <FormMessage />
