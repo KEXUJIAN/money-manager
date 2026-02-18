@@ -1,11 +1,9 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { v4 as uuidv4 } from "uuid"
-import { format } from "date-fns"
-import { CalendarIcon, Plus } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { Plus } from "lucide-react"
 
 import { db } from "@/db"
 import { useLiveQuery } from "dexie-react-hooks"
@@ -37,40 +35,32 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Calendar } from "@/components/ui/calendar"
-import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover"
 
 const formSchema = z.object({
     amount: z.coerce.number().min(0.01, "金额必须大于 0"),
-    type: z.enum(['income', 'expense', 'transfer']),
+    type: z.enum(['income', 'expense']),
     accountId: z.string().min(1, "请选择账户"),
-    toAccountId: z.string().optional(),
-    categoryId: z.string().optional(),
-    date: z.date(),
+    categoryId: z.string().min(1, "请选择分类"),
+    date: z.string().min(1, "请选择日期"),
     note: z.string().optional(),
-}).refine(data => {
-    if (data.type === 'transfer' && !data.toAccountId) {
-        return false;
-    }
-    return true;
-}, {
-    message: "转账需要选择目标账户",
-    path: ["toAccountId"],
-}).refine(data => {
-    if (data.type === 'transfer' && data.accountId === data.toAccountId) {
-        return false;
-    }
-    return true;
-}, {
-    message: "不能转账到同一账户",
-    path: ["toAccountId"],
-});
+})
 
 type FormValues = z.infer<typeof formSchema>
+
+/**
+ * 获取当前时间的 datetime-local 格式字符串（秒归零）
+ * 格式：YYYY-MM-DDTHH:mm
+ */
+function getNowDatetimeLocal(): string {
+    const now = new Date()
+    now.setSeconds(0, 0)
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const hours = String(now.getHours()).padStart(2, '0')
+    const minutes = String(now.getMinutes()).padStart(2, '0')
+    return `${year}-${month}-${day}T${hours}:${minutes}`
+}
 
 export function AddTransactionSheet() {
     const [open, setOpen] = useState(false)
@@ -79,87 +69,105 @@ export function AddTransactionSheet() {
     const accounts = useLiveQuery(() => db.accounts.toArray()) || []
     const categories = useLiveQuery(() => db.categories.toArray()) || []
 
+    const filteredCategories = useMemo(
+        () => categories.filter(c => c.type === activeTab),
+        [categories, activeTab]
+    )
+
     const form = useForm<FormValues>({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        resolver: zodResolver(formSchema) as any,
+        resolver: zodResolver(formSchema) as any, // any 理由：zodResolver 与 react-hook-form 泛型不完全兼容
         defaultValues: {
             amount: 0,
             type: "expense",
             accountId: "",
-            toAccountId: "",
             categoryId: "",
-            date: new Date(),
+            date: getNowDatetimeLocal(),
             note: "",
         },
     })
 
-    // Reset certain fields when type changes
+    // 打开侧边栏时，重置时间为当前时间
     useEffect(() => {
-        form.setValue("type", activeTab as any)
-        if (activeTab === 'transfer') {
-            form.setValue("categoryId", undefined)
-        } else {
-            form.setValue("toAccountId", undefined)
+        if (open) {
+            form.setValue("date", getNowDatetimeLocal())
         }
+    }, [open, form])
+
+    // 切换 Tab 时同步 type
+    useEffect(() => {
+        form.setValue("type", activeTab as "income" | "expense")
+        // 切换类型后重置分类
+        form.setValue("categoryId", "")
     }, [activeTab, form])
+
+    // 账户加载后设置默认值（只在 accountId 为空时）
+    useEffect(() => {
+        const currentAccountId = form.getValues("accountId")
+        if (!currentAccountId && accounts.length > 0) {
+            form.setValue("accountId", accounts[0].id)
+        }
+    }, [accounts, form])
+
+    // 分类列表变化后设置默认值（只在 categoryId 为空时）
+    useEffect(() => {
+        const currentCategoryId = form.getValues("categoryId")
+        if (!currentCategoryId && filteredCategories.length > 0) {
+            form.setValue("categoryId", filteredCategories[0].id)
+        }
+    }, [filteredCategories, form])
 
     async function onSubmit(values: FormValues) {
         try {
-            const transactionId = uuidv4();
+            const transactionId = uuidv4()
+
+            // 解析 datetime-local 字符串并强制秒归零
+            const dateObj = new Date(values.date)
+            dateObj.setSeconds(0, 0)
+
+            // 备注为空时，自动填充分类名
+            let note = values.note?.trim() || ""
+            if (!note) {
+                const category = categories.find(c => c.id === values.categoryId)
+                note = category?.name || ""
+            }
 
             await db.transaction('rw', db.transactions, db.accounts, async () => {
-                // Add Transaction
                 await db.transactions.add({
                     id: transactionId,
                     amount: values.amount,
                     type: values.type,
                     accountId: values.accountId,
-                    toAccountId: values.toAccountId,
                     categoryId: values.categoryId,
-                    date: values.date.getTime(),
-                    note: values.note,
+                    date: dateObj.getTime(),
+                    note,
                     createdAt: Date.now(),
                     updatedAt: Date.now(),
                 })
 
-                // Update Account Balances
-                const account = await db.accounts.get(values.accountId);
+                // 更新账户余额
+                const account = await db.accounts.get(values.accountId)
                 if (account) {
-                    let newBalance = account.balance;
-                    if (values.type === 'expense') {
-                        newBalance -= values.amount;
-                    } else if (values.type === 'income') {
-                        newBalance += values.amount;
-                    } else if (values.type === 'transfer') {
-                        newBalance -= values.amount;
-                    }
-                    await db.accounts.update(values.accountId, { balance: newBalance });
+                    const newBalance = values.type === 'expense'
+                        ? account.balance - values.amount
+                        : account.balance + values.amount
+                    await db.accounts.update(values.accountId, { balance: newBalance })
                 }
-
-                if (values.type === 'transfer' && values.toAccountId) {
-                    const toAccount = await db.accounts.get(values.toAccountId);
-                    if (toAccount) {
-                        await db.accounts.update(values.toAccountId, { balance: toAccount.balance + values.amount });
-                    }
-                }
-            });
+            })
 
             setOpen(false)
             form.reset({
                 amount: 0,
-                type: activeTab as any,
-                accountId: values.accountId, // Keep the last used account
-                toAccountId: "",
+                type: activeTab as "income" | "expense",
+                accountId: values.accountId, // 保留上次使用的账户
                 categoryId: "",
-                date: new Date(),
+                date: getNowDatetimeLocal(),
                 note: "",
             })
         } catch (error) {
-            console.error("Failed to add transaction:", error)
+            console.error("保存记录失败:", error)
         }
     }
-
-    const filteredCategories = categories.filter(c => c.type === activeTab);
 
     return (
         <Sheet open={open} onOpenChange={setOpen}>
@@ -176,10 +184,9 @@ export function AddTransactionSheet() {
                 </SheetHeader>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">
-                    <TabsList className="grid w-full grid-cols-3">
+                    <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="expense">支出</TabsTrigger>
                         <TabsTrigger value="income">收入</TabsTrigger>
-                        <TabsTrigger value="transfer">转账</TabsTrigger>
                     </TabsList>
                 </Tabs>
 
@@ -208,7 +215,7 @@ export function AddTransactionSheet() {
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>账户</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <Select value={field.value} onValueChange={field.onChange}>
                                         <FormControl>
                                             <SelectTrigger>
                                                 <SelectValue placeholder="选择账户" />
@@ -225,93 +232,42 @@ export function AddTransactionSheet() {
                             )}
                         />
 
-                        {activeTab === 'transfer' && (
-                            <FormField
-                                control={form.control}
-                                name="toAccountId"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>转入账户</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="选择目标账户" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {accounts.filter(a => a.id !== form.watch('accountId')).map(acc => (
-                                                    <SelectItem key={acc.id} value={acc.id}>{acc.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        )}
-
-                        {activeTab !== 'transfer' && (
-                            <FormField
-                                control={form.control}
-                                name="categoryId"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>分类</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="选择分类" />
-                                                </SelectTrigger>
-                                            </FormControl>
-                                            <SelectContent>
-                                                {filteredCategories.map(cat => (
-                                                    <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        )}
+                        <FormField
+                            control={form.control}
+                            name="categoryId"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>分类</FormLabel>
+                                    <Select value={field.value} onValueChange={field.onChange}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="选择分类" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {filteredCategories.map(cat => (
+                                                <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
 
                         <FormField
                             control={form.control}
                             name="date"
                             render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel>日期</FormLabel>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <FormControl>
-                                                <Button
-                                                    variant={"outline"}
-                                                    className={cn(
-                                                        "w-full pl-3 text-left font-normal",
-                                                        !field.value && "text-muted-foreground"
-                                                    )}
-                                                >
-                                                    {field.value ? (
-                                                        format(field.value, "yyyy-MM-dd")
-                                                    ) : (
-                                                        <span>选择日期</span>
-                                                    )}
-                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                </Button>
-                                            </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar
-                                                mode="single"
-                                                selected={field.value}
-                                                onSelect={field.onChange}
-                                                disabled={(date) =>
-                                                    date > new Date() || date < new Date("1900-01-01")
-                                                }
-                                                initialFocus
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
+                                <FormItem>
+                                    <FormLabel>日期时间</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type="datetime-local"
+                                            step="60"
+                                            {...field}
+                                        />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -324,7 +280,7 @@ export function AddTransactionSheet() {
                                 <FormItem>
                                     <FormLabel>备注</FormLabel>
                                     <FormControl>
-                                        <Textarea placeholder="备注（可选）" {...field} />
+                                        <Textarea placeholder="备注（可选，为空则自动填充分类名）" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
