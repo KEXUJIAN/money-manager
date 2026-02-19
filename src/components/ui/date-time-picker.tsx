@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useEffect, useCallback } from "react"
 import { format } from "date-fns"
+import { zhCN } from "date-fns/locale"
 import { CalendarIcon, Clock, ChevronUp, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -18,7 +19,7 @@ interface DateTimePickerProps {
 }
 
 /**
- * 精致的时间滚轮选择器
+ * 时间滚轮选择器
  */
 function TimeWheel({
     items,
@@ -30,18 +31,15 @@ function TimeWheel({
     onChange: (v: string) => void
 }) {
     const containerRef = useRef<HTMLDivElement>(null)
-    const isScrollingRef = useRef(false)
 
     const scrollToValue = useCallback((val: string, behavior: ScrollBehavior = "instant") => {
         if (!containerRef.current) return
         const idx = items.indexOf(val)
         if (idx < 0) return
-        const itemHeight = 32
+        const itemHeight = 36
         const containerHeight = containerRef.current.clientHeight
         const scrollTop = idx * itemHeight - (containerHeight / 2 - itemHeight / 2)
-        isScrollingRef.current = true
         containerRef.current.scrollTo({ top: scrollTop, behavior })
-        setTimeout(() => { isScrollingRef.current = false }, 150)
     }, [items])
 
     useEffect(() => {
@@ -63,17 +61,17 @@ function TimeWheel({
     }
 
     return (
-        <div className="flex flex-col items-center gap-0.5">
+        <div className="flex flex-col items-center">
             <button
                 type="button"
-                className="h-5 w-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors rounded"
+                className="h-7 w-full flex items-center justify-center text-muted-foreground/60 hover:text-foreground transition-colors rounded-md hover:bg-muted/50"
                 onClick={stepUp}
             >
-                <ChevronUp className="h-3.5 w-3.5" />
+                <ChevronUp className="h-4 w-4" />
             </button>
             <div
                 ref={containerRef}
-                className="h-[96px] w-[48px] overflow-y-auto rounded-md scrollbar-none relative"
+                className="h-[108px] w-[60px] overflow-y-auto rounded-lg"
                 style={{ scrollbarWidth: "none" }}
             >
                 {items.map(item => (
@@ -81,10 +79,10 @@ function TimeWheel({
                         key={item}
                         type="button"
                         className={cn(
-                            "w-full h-8 flex items-center justify-center text-sm transition-all rounded-md",
+                            "w-full h-9 flex items-center justify-center text-sm transition-all rounded-lg",
                             value === item
                                 ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-                                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+                                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                         )}
                         onClick={() => {
                             onChange(item)
@@ -97,10 +95,10 @@ function TimeWheel({
             </div>
             <button
                 type="button"
-                className="h-5 w-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors rounded"
+                className="h-7 w-full flex items-center justify-center text-muted-foreground/60 hover:text-foreground transition-colors rounded-md hover:bg-muted/50"
                 onClick={stepDown}
             >
-                <ChevronDown className="h-3.5 w-3.5" />
+                <ChevronDown className="h-4 w-4" />
             </button>
         </div>
     )
@@ -161,38 +159,43 @@ export function DateTimePicker({ value, onChange, className }: DateTimePickerPro
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="z-[200] w-auto p-0" align="start">
-                {/* 日历区域 */}
+                {/* 日历区域 — 中文、下拉年月、更大格子 */}
                 <Calendar
                     mode="single"
                     selected={value}
                     onSelect={handleDateSelect}
+                    locale={zhCN}
+                    captionLayout="dropdown"
+                    fromYear={2020}
+                    toYear={2030}
+                    style={{ ["--cell-size" as string]: "2.5rem" }}
                     initialFocus
                 />
 
                 {/* 时间选择区域 */}
-                <div className="border-t px-4 py-3">
-                    <div className="flex items-center justify-between">
+                <div className="border-t px-5 py-3">
+                    <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm text-muted-foreground">时间</span>
+                            <span className="text-sm font-medium text-muted-foreground">选择时间</span>
                         </div>
                         <Button
-                            variant="ghost"
+                            variant="outline"
                             size="sm"
-                            className="h-7 text-xs text-muted-foreground hover:text-foreground"
+                            className="h-7 text-xs"
                             onClick={handleNow}
                         >
                             回到现在
                         </Button>
                     </div>
 
-                    <div className="flex items-center justify-center gap-2 mt-2">
+                    <div className="flex items-center justify-center gap-1 py-1">
                         <TimeWheel
                             items={hours}
                             value={currentHour}
                             onChange={handleHourChange}
                         />
-                        <span className="text-lg font-semibold text-muted-foreground select-none">:</span>
+                        <span className="text-xl font-bold text-muted-foreground/50 select-none pb-1">:</span>
                         <TimeWheel
                             items={minutes}
                             value={currentMinute}
