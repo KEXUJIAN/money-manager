@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react"
 import { format, add, sub } from "date-fns"
-import { ChevronLeft, ChevronRight, Calendar } from "lucide-react"
+import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -14,6 +14,7 @@ import { useStats } from "@/features/stats/hooks/useStats"
 import { MonthlyOverview } from "@/features/stats/components/MonthlyOverview"
 import { DailyChart } from "@/features/stats/components/DailyChart"
 import { CategoryBreakdown } from "@/features/stats/components/CategoryBreakdown"
+import { StatsPeriodPicker } from "@/features/stats/components/StatsPeriodPicker"
 import { getDateRange, type TimeDimension } from "@/features/stats/utils"
 
 export default function Stats() {
@@ -117,10 +118,12 @@ export default function Stats() {
                     <Button variant="ghost" size="icon" onClick={() => navigate("prev")} disabled={dimension === "all"}>
                         <ChevronLeft className="h-4 w-4" />
                     </Button>
-                    <div className="flex items-center gap-2 font-medium min-w-[140px] justify-center">
-                        <Calendar className="h-4 w-4 text-muted-foreground" />
-                        {formatRangeDisplay()}
-                    </div>
+                    <StatsPeriodPicker
+                        dimension={dimension}
+                        currentDate={currentDate}
+                        onDateChange={setCurrentDate}
+                        displayText={formatRangeDisplay()}
+                    />
                     <Button variant="ghost" size="icon" onClick={() => navigate("next")} disabled={dimension === "all"}>
                         <ChevronRight className="h-4 w-4" />
                     </Button>
