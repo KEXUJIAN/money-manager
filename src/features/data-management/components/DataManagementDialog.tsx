@@ -1,7 +1,8 @@
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { db } from "@/db"
 import { Download, Upload, Trash2, FileText, Database, AlertTriangle } from "lucide-react"
 import { LEGACY_TXT_DELIMITER, LEGACY_TXT_HEADER } from "@/lib/constants"
+import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -20,6 +21,10 @@ export function DataManagementDialog() {
     const [open, setOpen] = useState(false)
     const [importing, setImporting] = useState(false)
     const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
+    const [jsonImportConfirmOpen, setJsonImportConfirmOpen] = useState(false)
+    const [txtImportConfirmOpen, setTxtImportConfirmOpen] = useState(false)
+    const pendingJsonData = useRef<ReturnType<typeof JSON.parse> | null>(null) // any 理由：JSON.parse 返回值即为 any
+    const pendingTxtParsed = useRef<Awaited<ReturnType<typeof parseLegacyTxt>> | null>(null)
 
     // ---- 数据导出 (JSON) ----
     async function exportJson() {
@@ -44,7 +49,8 @@ export function DataManagementDialog() {
             a.click()
             URL.revokeObjectURL(url)
         } catch (error) {
-            console.error("Export failed:", error)
+            console.error("导出失败:", error)
+            toast.error("导出失败，请重试")
         }
     }
 
@@ -92,7 +98,8 @@ export function DataManagementDialog() {
             URL.revokeObjectURL(url)
 
         } catch (error) {
-            console.error("TXT Export failed:", error)
+            console.error("TXT 导出失败:", error)
+            toast.error("导出失败，请重试")
         }
     }
 
@@ -110,30 +117,42 @@ export function DataManagementDialog() {
                 const data = JSON.parse(text)
 
                 if (!data.version || !data.accounts || !data.transactions) {
-                    alert("无效的备份文件格式")
+                    toast.error("无效的备份文件格式")
                     return
                 }
 
-                if (!confirm("导入将覆盖当前所有数据，确定继续？")) return
-
-                await db.transaction("rw", db.accounts, db.categories, db.transactions, async () => {
-                    await db.accounts.clear()
-                    await db.categories.clear()
-                    await db.transactions.clear()
-
-                    if (data.accounts?.length) await db.accounts.bulkAdd(data.accounts)
-                    if (data.categories?.length) await db.categories.bulkAdd(data.categories)
-                    if (data.transactions?.length) await db.transactions.bulkAdd(data.transactions)
-                })
-
-                alert("导入成功！")
-                setOpen(false)
+                pendingJsonData.current = data
+                setJsonImportConfirmOpen(true)
             } catch (error) {
-                console.error("Import failed:", error)
-                alert("导入失败，请检查文件格式")
+                console.error("导入失败:", error)
+                toast.error("导入失败，请检查文件格式")
             }
         }
         input.click()
+    }
+
+    async function doJsonImport() {
+        const data = pendingJsonData.current
+        if (!data) return
+        try {
+            await db.transaction("rw", db.accounts, db.categories, db.transactions, async () => {
+                await db.accounts.clear()
+                await db.categories.clear()
+                await db.transactions.clear()
+
+                if (data.accounts?.length) await db.accounts.bulkAdd(data.accounts)
+                if (data.categories?.length) await db.categories.bulkAdd(data.categories)
+                if (data.transactions?.length) await db.transactions.bulkAdd(data.transactions)
+            })
+
+            toast.success("导入成功！")
+            setOpen(false)
+        } catch (error) {
+            console.error("导入失败:", error)
+            toast.error("导入失败，请检查文件格式")
+        } finally {
+            pendingJsonData.current = null
+        }
     }
 
     // ---- 导入历史账单 (TXT) ----
@@ -151,23 +170,37 @@ export function DataManagementDialog() {
                 const parsed = parseLegacyTxt(text)
 
                 if (parsed.length === 0) {
-                    alert("未找到有效的交易记录，请检查文件格式")
+                    toast.error("未找到有效的交易记录，请检查文件格式")
                     return
                 }
 
-                if (!confirm(`解析到 ${parsed.length} 条交易记录，确定导入？`)) return
-
-                const result = await importLegacyData(parsed)
-                alert(`导入完成！\n✅ 导入 ${result.imported} 条交易\n📂 新建 ${result.categoriesCreated} 个分类`)
-                setOpen(false)
+                pendingTxtParsed.current = parsed
+                setTxtImportConfirmOpen(true)
             } catch (error) {
-                console.error("Legacy import failed:", error)
-                alert("导入失败：" + (error instanceof Error ? error.message : "未知错误"))
+                console.error("历史账单导入失败:", error)
+                toast.error("导入失败：" + (error instanceof Error ? error.message : "未知错误"))
             } finally {
                 setImporting(false)
             }
         }
         input.click()
+    }
+
+    async function doTxtImport() {
+        const parsed = pendingTxtParsed.current
+        if (!parsed) return
+        try {
+            setImporting(true)
+            const result = await importLegacyData(parsed)
+            toast.success(`导入完成！✅ 导入 ${result.imported} 条交易，📂 新建 ${result.categoriesCreated} 个分类`)
+            setOpen(false)
+        } catch (error) {
+            console.error("历史账单导入失败:", error)
+            toast.error("导入失败：" + (error instanceof Error ? error.message : "未知错误"))
+        } finally {
+            setImporting(false)
+            pendingTxtParsed.current = null
+        }
     }
 
     // ---- 清空数据 ----
@@ -178,10 +211,11 @@ export function DataManagementDialog() {
                 await db.categories.clear()
                 await db.transactions.clear()
             })
-            alert("数据已清空")
+            toast.success("数据已清空")
             setOpen(false)
         } catch (error) {
-            console.error("Clear failed:", error)
+            console.error("清空失败:", error)
+            toast.error("清空失败，请重试")
         }
     }
 
@@ -280,6 +314,23 @@ export function DataManagementDialog() {
                 confirmText="清空所有数据"
                 variant="destructive"
                 onConfirm={clearAllData}
+            />
+            <ConfirmationModal
+                open={jsonImportConfirmOpen}
+                onOpenChange={setJsonImportConfirmOpen}
+                title="确定导入 JSON 备份？"
+                description="导入将覆盖当前所有数据（账户、分类、交易记录），此操作不可撤销。"
+                confirmText="确定导入"
+                variant="destructive"
+                onConfirm={doJsonImport}
+            />
+            <ConfirmationModal
+                open={txtImportConfirmOpen}
+                onOpenChange={setTxtImportConfirmOpen}
+                title={`确定导入 ${pendingTxtParsed.current?.length ?? 0} 条交易记录？`}
+                description="导入的数据将追加到当前数据库中。"
+                confirmText="确定导入"
+                onConfirm={doTxtImport}
             />
         </Dialog>
     )

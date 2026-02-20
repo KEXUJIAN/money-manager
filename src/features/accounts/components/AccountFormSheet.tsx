@@ -34,7 +34,7 @@ import {
 import { Trash2 } from "lucide-react"
 
 const formSchema = z.object({
-    name: z.string().min(1, "Name is required"),
+    name: z.string().min(1, "请输入账户名称"),
     type: z.enum(['cash', 'bank', 'alipay', 'wechat', 'credit_card', 'other']),
     balance: z.coerce.number(),
     currency: z.string(),
