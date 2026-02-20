@@ -1,9 +1,7 @@
 import { useState } from "react"
-import { zhCN } from "date-fns/locale"
 import { Calendar as CalendarIcon } from "lucide-react"
 
 import { cn } from "@/lib/utils"
-import { Calendar } from "@/components/ui/calendar"
 import {
     Popover,
     PopoverContent,
@@ -19,8 +17,131 @@ interface StatsPeriodPickerProps {
     displayText: string
 }
 
+const WEEKDAY_LABELS = ["一", "二", "三", "四", "五", "六", "日"]
+
 /**
- * 月份选择面板：上方年份下拉 + 12 个月份格子
+ * 获取某月的日历格子（按周一为起始，补齐前后空白）
+ */
+function getCalendarDays(year: number, month: number) {
+    const firstDay = new Date(year, month, 1)
+    const lastDay = new Date(year, month + 1, 0)
+    const daysInMonth = lastDay.getDate()
+
+    // 周一=0 ... 周日=6
+    let startWeekday = firstDay.getDay() - 1
+    if (startWeekday < 0) startWeekday = 6
+
+    const cells: (number | null)[] = []
+    for (let i = 0; i < startWeekday; i++) cells.push(null)
+    for (let d = 1; d <= daysInMonth; d++) cells.push(d)
+    while (cells.length % 7 !== 0) cells.push(null)
+
+    return cells
+}
+
+/**
+ * 日期选择面板：年月导航 + 日期网格（与 MonthPanel/YearPanel 同风格）
+ */
+function DayPanel({
+    currentDate,
+    onSelect,
+}: {
+    currentDate: Date
+    onSelect: (date: Date) => void
+}) {
+    const [viewYear, setViewYear] = useState(currentDate.getFullYear())
+    const [viewMonth, setViewMonth] = useState(currentDate.getMonth())
+
+    const selectedDay = currentDate.getDate()
+    const selectedMonth = currentDate.getMonth()
+    const selectedYear = currentDate.getFullYear()
+
+    const cells = getCalendarDays(viewYear, viewMonth)
+
+    const today = new Date()
+    const todayDay = today.getDate()
+    const todayMonth = today.getMonth()
+    const todayYear = today.getFullYear()
+
+    function prevMonth() {
+        if (viewMonth === 0) { setViewYear(y => y - 1); setViewMonth(11) }
+        else setViewMonth(m => m - 1)
+    }
+    function nextMonth() {
+        if (viewMonth === 11) { setViewYear(y => y + 1); setViewMonth(0) }
+        else setViewMonth(m => m + 1)
+    }
+
+    const monthNames = ["1月", "2月", "3月", "4月", "5月", "6月", "7月", "8月", "9月", "10月", "11月", "12月"]
+
+    return (
+        <div className="p-3 w-[300px]">
+            {/* 年月导航 */}
+            <div className="flex items-center justify-between mb-3">
+                <button
+                    type="button"
+                    className="text-sm px-2 py-1 rounded hover:bg-muted transition-colors"
+                    onClick={prevMonth}
+                >
+                    ◀
+                </button>
+                <span className="text-sm font-semibold">{viewYear}年 {monthNames[viewMonth]}</span>
+                <button
+                    type="button"
+                    className="text-sm px-2 py-1 rounded hover:bg-muted transition-colors"
+                    onClick={nextMonth}
+                >
+                    ▶
+                </button>
+            </div>
+            {/* 星期标头 */}
+            <div className="grid grid-cols-7 mb-1">
+                {WEEKDAY_LABELS.map(w => (
+                    <div key={w} className="text-center text-xs text-muted-foreground font-medium py-1">{w}</div>
+                ))}
+            </div>
+            {/* 日期格子 */}
+            <div className="grid grid-cols-7">
+                {cells.map((day, idx) => {
+                    if (day === null) {
+                        return <div key={`e-${idx}`} className="h-9" />
+                    }
+
+                    const isSelected = day === selectedDay && viewMonth === selectedMonth && viewYear === selectedYear
+                    const isToday = day === todayDay && viewMonth === todayMonth && viewYear === todayYear
+
+                    return (
+                        <button
+                            key={idx}
+                            type="button"
+                            className={cn(
+                                "h-9 w-full text-sm rounded-md transition-colors",
+                                "hover:bg-accent hover:text-accent-foreground",
+                                isSelected
+                                    ? "bg-primary text-primary-foreground font-semibold"
+                                    : isToday
+                                        ? "bg-accent/60 font-medium"
+                                        : "text-foreground"
+                            )}
+                            onClick={() => {
+                                const d = new Date(currentDate)
+                                d.setFullYear(viewYear)
+                                d.setMonth(viewMonth)
+                                d.setDate(day)
+                                onSelect(d)
+                            }}
+                        >
+                            {day}
+                        </button>
+                    )
+                })}
+            </div>
+        </div>
+    )
+}
+
+/**
+ * 月份选择面板：上方年份导航 + 12 个月份格子
  */
 function MonthPanel({
     currentDate,
@@ -38,7 +159,6 @@ function MonthPanel({
 
     return (
         <div className="p-3 w-[260px]">
-            {/* 年份选择 */}
             <div className="flex items-center justify-between mb-3">
                 <button
                     type="button"
@@ -64,7 +184,6 @@ function MonthPanel({
                     ▶
                 </button>
             </div>
-            {/* 月份格子 */}
             <div className="grid grid-cols-3 gap-2">
                 {months.map((label, idx) => (
                     <button
@@ -140,7 +259,6 @@ function YearPanel({
 export function StatsPeriodPicker({ dimension, currentDate, onDateChange, displayText }: StatsPeriodPickerProps) {
     const [open, setOpen] = useState(false)
 
-    // "全部" 维度不可点击
     if (dimension === "all") {
         return (
             <div className="flex items-center gap-2 font-medium min-w-[160px] justify-center px-3 py-1.5 text-muted-foreground">
@@ -159,18 +277,7 @@ export function StatsPeriodPicker({ dimension, currentDate, onDateChange, displa
         switch (dimension) {
             case "day":
             case "week":
-                return (
-                    <Calendar
-                        mode="single"
-                        selected={currentDate}
-                        onSelect={(day) => { if (day) handleSelect(day) }}
-                        locale={zhCN}
-                        captionLayout="dropdown"
-                        fromYear={2015}
-                        toYear={2030}
-                        initialFocus
-                    />
-                )
+                return <DayPanel currentDate={currentDate} onSelect={handleSelect} />
             case "month":
                 return <MonthPanel currentDate={currentDate} onSelect={handleSelect} />
             case "year":
