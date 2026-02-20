@@ -1,6 +1,6 @@
 import { db } from "@/db"
-import { v4 as uuidv4 } from "uuid"
 import { LEGACY_TXT_DELIMITER } from "@/lib/constants"
+import { generateId } from "@/lib/utils"
 
 export interface ParsedTransaction {
     date: Date
@@ -59,12 +59,49 @@ export function parseLegacyTxt(text: string): ParsedTransaction[] {
 }
 
 /**
+ * 预检重复记录数
+ */
+export async function checkTxtDuplicates(
+    transactions: ParsedTransaction[],
+    accountId: string
+): Promise<number> {
+    const existingCategories = await db.categories.toArray()
+    const categoryMap = new Map<string, string>()
+    for (const cat of existingCategories) {
+        categoryMap.set(`${cat.type}:${cat.name}`, cat.id)
+    }
+
+    const existingTxs = await db.transactions.where("accountId").equals(accountId).toArray()
+    const txSet = new Set<string>()
+    for (const t of existingTxs) {
+        // 分钟级特征匹配签名: 日期(降至分钟)_金额_类型_分类id
+        const tDateMins = Math.floor(t.date / 60000)
+        txSet.add(`${tDateMins}_${t.amount}_${t.type}_${t.categoryId}`)
+    }
+
+    let duplicates = 0
+    for (const tx of transactions) {
+        const catKey = `${tx.type}:${tx.categoryName}`
+        const catId = categoryMap.get(catKey)
+        if (catId) {
+            const txDateMins = Math.floor(tx.date.getTime() / 60000)
+            const signature = `${txDateMins}_${tx.amount}_${tx.type}_${catId}`
+            if (txSet.has(signature)) {
+                duplicates++
+            }
+        }
+    }
+    return duplicates
+}
+
+/**
  * 将解析后的交易数据导入数据库
  * 自动匹配或创建分类，传入指定的目标账户 ID
  */
 export async function importLegacyData(
     transactions: ParsedTransaction[],
-    accountId: string
+    accountId: string,
+    skipDuplicates: boolean = false
 ): Promise<{
     imported: number
     categoriesCreated: number
@@ -76,19 +113,30 @@ export async function importLegacyData(
         categoryMap.set(`${cat.type}:${cat.name}`, cat.id)
     }
 
+
+    // 构建用于查重的 Set
+    const existingTxs = await db.transactions.where("accountId").equals(accountId).toArray()
+    const txSet = new Set<string>()
+    for (const t of existingTxs) {
+        const tDateMins = Math.floor(t.date / 60000)
+        txSet.add(`${tDateMins}_${t.amount}_${t.type}_${t.categoryId}`)
+    }
+
     let categoriesCreated = 0
+    let skipped = 0
     const now = Date.now()
 
     // 批量导入
     await db.transaction("rw", db.transactions, db.categories, db.accounts, async () => {
         const txRecords = []
 
-        for (const tx of transactions) {
+        for (let i = 0; i < transactions.length; i++) {
+            const tx = transactions[i]
             const mapKey = `${tx.type}:${tx.categoryName}`
 
             // 如果分类不存在，自动创建
             if (!categoryMap.has(mapKey)) {
-                const newCatId = uuidv4()
+                const newCatId = generateId(now, categoriesCreated)
                 await db.categories.add({
                     id: newCatId,
                     name: tx.categoryName,
@@ -100,12 +148,27 @@ export async function importLegacyData(
                 categoriesCreated++
             }
 
+            const catId = categoryMap.get(mapKey)!
+
+            // 重复检测
+            if (skipDuplicates) {
+                const txDateMins = Math.floor(tx.date.getTime() / 60000)
+                const signature = `${txDateMins}_${tx.amount}_${tx.type}_${catId}`
+                if (txSet.has(signature)) {
+                    skipped++
+                    continue // 跳过本条
+                }
+                // 加入到本次 set 内预防本次导入中有重复项
+                txSet.add(signature)
+            }
+
             txRecords.push({
-                id: uuidv4(),
+                // 使用交易发生时间 + 遍历序号生成 ID 解决同一分钟排序混杂问题
+                id: generateId(tx.date, i),
                 amount: tx.amount,
                 type: tx.type,
                 accountId: accountId,
-                categoryId: categoryMap.get(mapKey),
+                categoryId: catId,
                 date: tx.date.getTime(),
                 note: tx.note || undefined,
                 createdAt: now,
@@ -127,5 +190,5 @@ export async function importLegacyData(
         await db.accounts.update(accountId, { balance })
     })
 
-    return { imported: transactions.length, categoriesCreated }
+    return { imported: transactions.length - skipped, categoriesCreated }
 }

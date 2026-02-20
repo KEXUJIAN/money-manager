@@ -1,5 +1,5 @@
 import { db } from "./index";
-import { v4 as uuidv4 } from "uuid";
+import { generateId } from "@/lib/utils";
 
 // 用户提供的完整分类列表
 const expenseCategories = [
@@ -24,7 +24,7 @@ export const seedDatabase = async () => {
 
     // 默认账户（仅创建一个，用户可自行添加更多）
     await db.accounts.add({
-        id: uuidv4(),
+        id: generateId(),
         name: "默认账户",
         type: "cash",
         balance: 0,
@@ -36,8 +36,8 @@ export const seedDatabase = async () => {
     });
 
     // 支出分类（内置，不可删除）
-    const expenseCats = expenseCategories.map((name) => ({
-        id: uuidv4(),
+    const expenseCats = expenseCategories.map((name, i) => ({
+        id: generateId(now, i),
         name,
         type: "expense" as const,
         isBuiltin: true,
@@ -46,8 +46,8 @@ export const seedDatabase = async () => {
     }));
 
     // 收入分类（内置，不可删除）
-    const incomeCats = incomeCategories.map((name) => ({
-        id: uuidv4(),
+    const incomeCats = incomeCategories.map((name, i) => ({
+        id: generateId(now, expenseCats.length + i),
         name,
         type: "income" as const,
         isBuiltin: true,

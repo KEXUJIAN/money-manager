@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react"
 import { db } from "@/db"
 import { useLiveQuery } from "dexie-react-hooks"
-import { v4 as uuidv4 } from "uuid"
+import { generateId } from "@/lib/utils"
 import { Trash2, Plus, ChevronDown, ChevronRight, Search } from "lucide-react"
 import { toast } from "sonner"
 
@@ -113,8 +113,8 @@ export default function Settings() {
 
         try {
             await db.categories.add({
-                id: uuidv4(),
-                name,
+                id: generateId(),
+                name: newCatName.trim(),
                 type: newCatType,
                 createdAt: Date.now(),
                 updatedAt: Date.now(),

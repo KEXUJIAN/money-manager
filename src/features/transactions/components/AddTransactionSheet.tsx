@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { v4 as uuidv4 } from "uuid"
+import { generateId } from "@/lib/utils"
 import { Plus } from "lucide-react"
 
 import { db } from "@/db"
@@ -118,8 +118,8 @@ export function AddTransactionSheet() {
 
     async function onSubmit(values: FormValues) {
         try {
-            const transactionId = uuidv4()
-
+            const transactionId = generateId(values.date)
+            // Save transaction
             // 强制秒归零
             const dateObj = new Date(values.date)
             dateObj.setSeconds(0, 0)

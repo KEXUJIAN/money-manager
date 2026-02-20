@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
+import "@hookform/resolvers/zod"
 import * as z from "zod"
-import { v4 as uuidv4 } from "uuid"
+import { generateId } from "@/lib/utils"
 import { db } from "@/db"
 import type { Account } from "@/db"
 
@@ -90,7 +91,7 @@ export function AccountFormSheet({ open, onOpenChange, account }: AccountFormShe
                 })
             } else {
                 await db.accounts.add({
-                    id: uuidv4(),
+                    id: generateId(),
                     ...values,
                     createdAt: Date.now(),
                     updatedAt: Date.now(),

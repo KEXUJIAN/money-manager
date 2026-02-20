@@ -4,7 +4,7 @@ import { Download, Upload, Trash2, FileText, Database, AlertTriangle } from "luc
 import { LEGACY_TXT_DELIMITER, LEGACY_TXT_HEADER } from "@/lib/constants"
 import { toast } from "sonner"
 import { useLiveQuery } from "dexie-react-hooks"
-import { v4 as uuidv4 } from "uuid"
+import { generateId } from "@/lib/utils"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -18,7 +18,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmationModal } from "@/components/ui/confirmation-modal"
 import { SearchableSelect } from "@/components/ui/searchable-select"
-import { parseLegacyTxt, importLegacyData } from "@/features/import/importLegacy"
+import { parseLegacyTxt, importLegacyData, checkTxtDuplicates } from "@/features/import/importLegacy"
 
 export function DataManagementDialog() {
     const [open, setOpen] = useState(false)
@@ -26,9 +26,12 @@ export function DataManagementDialog() {
     const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
     const [jsonImportConfirmOpen, setJsonImportConfirmOpen] = useState(false)
     const [txtImportConfirmOpen, setTxtImportConfirmOpen] = useState(false)
+    const [txtDuplicateConfirmOpen, setTxtDuplicateConfirmOpen] = useState(false)
+    const [txtDuplicateCount, setTxtDuplicateCount] = useState(0)
     const [selectedAccountId, setSelectedAccountId] = useState("")
     const pendingJsonData = useRef<ReturnType<typeof JSON.parse> | null>(null) // any 理由：JSON.parse 返回值即为 any
     const pendingTxtParsed = useRef<Awaited<ReturnType<typeof parseLegacyTxt>> | null>(null)
+    const pendingTxtAccountId = useRef<string | null>(null)
 
     const accounts = useLiveQuery(() => db.accounts.toArray()) || []
     const accountOptions = useMemo(
@@ -195,8 +198,7 @@ export function DataManagementDialog() {
         }
         input.click()
     }
-
-    async function doTxtImport() {
+    async function preCheckTxtImport() {
         const parsed = pendingTxtParsed.current
         if (!parsed) return
         try {
@@ -206,7 +208,7 @@ export function DataManagementDialog() {
 
             // 如果没有账户，自动创建默认账户
             if (accounts.length === 0 || !targetAccountId) {
-                const newId = uuidv4()
+                const newId = generateId()
                 const now = Date.now()
                 await db.accounts.add({
                     id: newId,
@@ -223,15 +225,45 @@ export function DataManagementDialog() {
                 toast.info("已自动创建默认账户")
             }
 
-            const result = await importLegacyData(parsed, targetAccountId)
-            toast.success(`导入完成！✅ 导入 ${result.imported} 条交易，📂 新建 ${result.categoriesCreated} 个分类`)
+            pendingTxtAccountId.current = targetAccountId
+            const dupCount = await checkTxtDuplicates(parsed, targetAccountId)
+
+            if (dupCount > 0) {
+                setTxtDuplicateCount(dupCount)
+                setTxtImportConfirmOpen(false)     // 关闭上一个弹窗
+                setTxtDuplicateConfirmOpen(true)   // 打开排重弹窗
+                setImporting(false)
+                return
+            }
+
+            // 无重复情况下直接执行导入
+            await executeTxtImport(false)
+        } catch (error) {
+            console.error("历史账单导入前置检查失败:", error)
+            toast.error("导入失败：" + (error instanceof Error ? error.message : "未知错误"))
+            setImporting(false)
+            pendingTxtParsed.current = null
+            pendingTxtAccountId.current = null
+        }
+    }
+
+    async function executeTxtImport(skipDuplicates: boolean) {
+        const parsed = pendingTxtParsed.current
+        const targetAccountId = pendingTxtAccountId.current || selectedAccountId
+        if (!parsed || !targetAccountId) return
+        try {
+            setImporting(true)
+            const result = await importLegacyData(parsed, targetAccountId, skipDuplicates)
+            toast.success(`导入完成！✅ 导入 ${result.imported} 条交易，📂 新建 ${result.categoriesCreated} 个分类。${skipDuplicates ? `(已过滤 ${txtDuplicateCount} 条重复项)` : ""}`)
             setOpen(false)
         } catch (error) {
-            console.error("历史账单导入失败:", error)
+            console.error("历史账单导入执行失败:", error)
             toast.error("导入失败：" + (error instanceof Error ? error.message : "未知错误"))
         } finally {
             setImporting(false)
+            setTxtDuplicateConfirmOpen(false)
             pendingTxtParsed.current = null
+            pendingTxtAccountId.current = null
         }
     }
 
@@ -367,7 +399,7 @@ export function DataManagementDialog() {
                 title={`确定导入 ${pendingTxtParsed.current?.length ?? 0} 条交易记录？`}
                 description={accounts.length === 0 ? "当前没有账户，导入时将自动创建默认账户。" : "请选择导入数据挂载的目标账户："}
                 confirmText="确定导入"
-                onConfirm={doTxtImport}
+                onConfirm={preCheckTxtImport}
             >
                 {accounts.length > 0 && (
                     <div className="py-2">
@@ -381,6 +413,17 @@ export function DataManagementDialog() {
                     </div>
                 )}
             </ConfirmationModal>
+
+            <ConfirmationModal
+                open={txtDuplicateConfirmOpen}
+                onOpenChange={setTxtDuplicateConfirmOpen}
+                title={`过滤还是保留重复数据？`}
+                description={`我们在您即将导入的账单中，检测到了 ${txtDuplicateCount} 条可能已经在当前账户存在的记录。您希望如何处理？`}
+                confirmText="跳过重复项（推荐）"
+                cancelText="依然全部导入"
+                onConfirm={() => executeTxtImport(true)}      // confirm 表示选用推荐安全操作
+                onCancel={() => executeTxtImport(false)}      // cancel 这里当作另一个 action
+            />
         </Dialog>
     )
 }

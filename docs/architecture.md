@@ -48,21 +48,21 @@ src/
 
 ```
 Account
-├── id: string (UUID)
+├── id: string (generateId)
 ├── name: string
 ├── type: 'cash' | 'bank' | 'alipay' | 'wechat' | 'credit_card' | 'other'
 ├── balance: number
 └── currency: string
 
 Category
-├── id: string (UUID)
+├── id: string (generateId)
 ├── name: string
 ├── type: 'income' | 'expense'
 ├── isBuiltin?: boolean    ← 内置分类不可删除
 └── parentId?: string
 
 Transaction
-├── id: string (UUID)
+├── id: string (generateId)
 ├── amount: number         ← 始终为正数
 ├── type: 'income' | 'expense'
 ├── accountId: string
