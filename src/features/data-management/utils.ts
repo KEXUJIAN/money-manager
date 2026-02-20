@@ -31,7 +31,7 @@ export function generateLegacyTxt(transactions: Transaction[], categories: Categ
 
     sorted.forEach(tx => {
         const dateStr = formatDate(tx.date)
-        const typeStr = tx.type === 'expense' ? '支出' : (tx.type === 'income' ? '收入' : '转账')
+        const typeStr = tx.type === 'expense' ? '支出' : '收入'
 
         const categoryName = (tx.categoryId ? categoryMap.get(tx.categoryId) : "") || "其他"
 

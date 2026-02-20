@@ -73,7 +73,7 @@ export function DataManagementDialog() {
 
             transactions.forEach(tx => {
                 const dateStr = fmtDate(tx.date)
-                const typeStr = tx.type === 'expense' ? '支出' : (tx.type === 'income' ? '收入' : '转账')
+                const typeStr = tx.type === 'expense' ? '支出' : '收入'
                 const catName = categoryMap.get(tx.categoryId) || "其他"
                 // 支出为负数，收入为正数
                 const amount = tx.type === 'expense' ? -tx.amount : tx.amount

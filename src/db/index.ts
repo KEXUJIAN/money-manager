@@ -15,7 +15,7 @@ export interface Account {
 export interface Category {
   id: string; // UUID
   name: string;
-  type: 'income' | 'expense' | 'transfer';
+  type: 'income' | 'expense';
   icon?: string;
   color?: string;
   isBuiltin?: boolean; // WHY: 区分内置分类（不可删除）和用户自定义分类
@@ -27,10 +27,9 @@ export interface Category {
 export interface Transaction {
   id: string; // UUID
   amount: number; // Always positive
-  type: 'income' | 'expense' | 'transfer';
+  type: 'income' | 'expense';
   accountId: string;
-  toAccountId?: string; // For transfer
-  categoryId?: string; // Optional for transfer
+  categoryId?: string;
   date: number; // Timestamp
   note?: string;
   tags?: string[];

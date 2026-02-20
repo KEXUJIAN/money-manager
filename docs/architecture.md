@@ -57,16 +57,15 @@ Account
 Category
 ├── id: string (UUID)
 ├── name: string
-├── type: 'income' | 'expense' | 'transfer'
+├── type: 'income' | 'expense'
 ├── isBuiltin?: boolean    ← 内置分类不可删除
 └── parentId?: string
 
 Transaction
 ├── id: string (UUID)
 ├── amount: number         ← 始终为正数
-├── type: 'income' | 'expense' | 'transfer'
+├── type: 'income' | 'expense'
 ├── accountId: string
-├── toAccountId?: string   ← 转账目标
 ├── categoryId?: string
 ├── date: number           ← 时间戳
 └── note?: string

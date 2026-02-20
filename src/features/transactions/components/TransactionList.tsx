@@ -1,7 +1,6 @@
 import { useLiveQuery } from "dexie-react-hooks"
 import { db } from "@/db"
 import { format } from "date-fns"
-import { ArrowRightLeft } from "lucide-react"
 
 export function TransactionList() {
     const transactions = useLiveQuery(async () => {
@@ -14,13 +13,11 @@ export function TransactionList() {
         return Promise.all(txs.map(async (tx) => {
             const account = await db.accounts.get(tx.accountId);
             const category = tx.categoryId ? await db.categories.get(tx.categoryId) : null;
-            const toAccount = tx.toAccountId ? await db.accounts.get(tx.toAccountId) : null;
 
             return {
                 ...tx,
-                accountName: account?.name || 'Unknown',
+                accountName: account?.name || '未知账户',
                 categoryName: category?.name,
-                toAccountName: toAccount?.name
             };
         }));
     });
@@ -48,21 +45,14 @@ export function TransactionList() {
                 >
                     <div className="flex items-center gap-3">
                         <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-sm font-bold ${tx.type === 'income'
-                                ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
-                                : tx.type === 'expense'
-                                    ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
-                                    : 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                            ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
+                            : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
                             }`}>
-                            {tx.type === 'transfer'
-                                ? <ArrowRightLeft className="h-4 w-4" />
-                                : <span>{tx.categoryName ? tx.categoryName[0] : '?'}</span>
-                            }
+                            <span>{tx.categoryName ? tx.categoryName[0] : '?'}</span>
                         </div>
                         <div>
                             <p className="text-sm font-medium leading-none">
-                                {tx.type === 'transfer'
-                                    ? `转账至 ${tx.toAccountName}`
-                                    : tx.categoryName || tx.note || '未分类'}
+                                {tx.categoryName || tx.note || '未分类'}
                             </p>
                             <p className="text-xs text-muted-foreground mt-1">
                                 {format(tx.date, 'MM/dd')} · {tx.accountName}
@@ -70,12 +60,10 @@ export function TransactionList() {
                         </div>
                     </div>
                     <span className={`text-sm font-semibold tabular-nums ${tx.type === 'income'
-                            ? 'text-emerald-600 dark:text-emerald-400'
-                            : tx.type === 'expense'
-                                ? 'text-red-600 dark:text-red-400'
-                                : 'text-foreground'
+                        ? 'text-emerald-600 dark:text-emerald-400'
+                        : 'text-red-600 dark:text-red-400'
                         }`}>
-                        {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''}
+                        {tx.type === 'expense' ? '-' : '+'}
                         {formatter.format(tx.amount)}
                     </span>
                 </div>
