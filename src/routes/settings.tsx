@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { db } from "@/db"
 import { useLiveQuery } from "dexie-react-hooks"
 import { v4 as uuidv4 } from "uuid"
@@ -23,6 +23,18 @@ export default function Settings() {
     const [newCatName, setNewCatName] = useState("")
     const [newCatType, setNewCatType] = useState<"income" | "expense">("expense")
 
+    // 添加分类输入联动防抖
+    const [isComposing, setIsComposing] = useState(false)
+    const [debouncedCatName, setDebouncedCatName] = useState("")
+
+    useEffect(() => {
+        if (isComposing) return
+        const timer = setTimeout(() => {
+            setDebouncedCatName(newCatName)
+        }, 300)
+        return () => clearTimeout(timer)
+    }, [newCatName, isComposing])
+
     // 折叠面板状态
     const [expenseOpen, setExpenseOpen] = useState(false)
     const [incomeOpen, setIncomeOpen] = useState(false)
@@ -43,19 +55,43 @@ export default function Settings() {
         [categories]
     )
 
+    // 计算实际的搜索词（添加分类联动优先级更高）
+    const activeExpenseSearch = (newCatType === "expense" && debouncedCatName) ? debouncedCatName : expenseSearch
+    const activeIncomeSearch = (newCatType === "income" && debouncedCatName) ? debouncedCatName : incomeSearch
+
     // 搜索过滤后的列表
     const filteredExpense = useMemo(
-        () => expenseSearch
-            ? expenseCategories.filter(c => c.name.includes(expenseSearch))
+        () => activeExpenseSearch
+            ? expenseCategories.filter(c => c.name.toLowerCase().includes(activeExpenseSearch.toLowerCase()))
             : expenseCategories,
-        [expenseCategories, expenseSearch]
+        [expenseCategories, activeExpenseSearch]
     )
     const filteredIncome = useMemo(
-        () => incomeSearch
-            ? incomeCategories.filter(c => c.name.includes(incomeSearch))
+        () => activeIncomeSearch
+            ? incomeCategories.filter(c => c.name.toLowerCase().includes(activeIncomeSearch.toLowerCase()))
             : incomeCategories,
-        [incomeCategories, incomeSearch]
+        [incomeCategories, activeIncomeSearch]
     )
+
+    // 如果添加分类框输入了内容，自动展开对应的面板
+    const effectiveExpenseOpen = expenseOpen || (newCatType === "expense" && debouncedCatName && filteredExpense.length > 0)
+    const effectiveIncomeOpen = incomeOpen || (newCatType === "income" && debouncedCatName && filteredIncome.length > 0)
+
+    function highlight(text: string, keyword: string) {
+        if (!keyword) return text
+        const idx = text.toLowerCase().indexOf(keyword.toLowerCase())
+        if (idx < 0) return text
+        const before = text.slice(0, idx)
+        const match = text.slice(idx, idx + keyword.length)
+        const after = text.slice(idx + keyword.length)
+        return (
+            <>
+                {before}
+                <mark className="bg-yellow-200 dark:bg-yellow-700/60 text-inherit rounded-sm px-0.5">{match}</mark>
+                {after}
+            </>
+        )
+    }
 
     // ---- 分类管理 ----
     async function addCategory() {
@@ -119,7 +155,12 @@ export default function Settings() {
                             placeholder="分类名称..."
                             value={newCatName}
                             onChange={(e) => setNewCatName(e.target.value)}
-                            onKeyDown={(e) => e.key === "Enter" && addCategory()}
+                            onCompositionStart={() => setIsComposing(true)}
+                            onCompositionEnd={(e) => {
+                                setIsComposing(false)
+                                setNewCatName((e.target as HTMLInputElement).value)
+                            }}
+                            onKeyDown={(e) => e.key === "Enter" && !isComposing && addCategory()}
                             className="flex-1"
                         />
                         <Select value={newCatType} onValueChange={(v) => setNewCatType(v as "income" | "expense")}>
@@ -136,7 +177,6 @@ export default function Settings() {
                         </Button>
                     </div>
 
-                    {/* 支出分类列表（折叠面板） */}
                     <div className="border rounded-lg overflow-hidden">
                         <button
                             type="button"
@@ -144,7 +184,7 @@ export default function Settings() {
                             onClick={() => setExpenseOpen(!expenseOpen)}
                         >
                             <div className="flex items-center gap-2">
-                                {expenseOpen
+                                {effectiveExpenseOpen
                                     ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
                                     : <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                 }
@@ -152,7 +192,7 @@ export default function Settings() {
                                 <span className="text-xs text-muted-foreground">({expenseCategories.length})</span>
                             </div>
                         </button>
-                        {expenseOpen && (
+                        {effectiveExpenseOpen && (
                             <div className="px-3 pb-2 space-y-2 border-t">
                                 {/* 搜索框 */}
                                 <div className="flex items-center gap-2 pt-2">
@@ -168,7 +208,7 @@ export default function Settings() {
                                     {filteredExpense.map(cat => (
                                         <div key={cat.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-sm">{cat.name}</span>
+                                                <span className="text-sm">{highlight(cat.name, activeExpenseSearch)}</span>
                                                 {cat.isBuiltin && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">内置</span>}
                                             </div>
                                             {!cat.isBuiltin && (
@@ -185,7 +225,7 @@ export default function Settings() {
                                     ))}
                                     {filteredExpense.length === 0 && (
                                         <p className="text-sm text-muted-foreground py-2">
-                                            {expenseSearch ? "无匹配项" : "暂无支出分类"}
+                                            {activeExpenseSearch ? "无匹配项" : "暂无支出分类"}
                                         </p>
                                     )}
                                 </div>
@@ -193,7 +233,6 @@ export default function Settings() {
                         )}
                     </div>
 
-                    {/* 收入分类列表（折叠面板） */}
                     <div className="border rounded-lg overflow-hidden">
                         <button
                             type="button"
@@ -201,7 +240,7 @@ export default function Settings() {
                             onClick={() => setIncomeOpen(!incomeOpen)}
                         >
                             <div className="flex items-center gap-2">
-                                {incomeOpen
+                                {effectiveIncomeOpen
                                     ? <ChevronDown className="h-4 w-4 text-muted-foreground" />
                                     : <ChevronRight className="h-4 w-4 text-muted-foreground" />
                                 }
@@ -209,7 +248,7 @@ export default function Settings() {
                                 <span className="text-xs text-muted-foreground">({incomeCategories.length})</span>
                             </div>
                         </button>
-                        {incomeOpen && (
+                        {effectiveIncomeOpen && (
                             <div className="px-3 pb-2 space-y-2 border-t">
                                 {/* 搜索框 */}
                                 <div className="flex items-center gap-2 pt-2">
@@ -225,7 +264,7 @@ export default function Settings() {
                                     {filteredIncome.map(cat => (
                                         <div key={cat.id} className="flex items-center justify-between py-1.5 px-2 rounded hover:bg-muted/50">
                                             <div className="flex items-center gap-2">
-                                                <span className="text-sm">{cat.name}</span>
+                                                <span className="text-sm">{highlight(cat.name, activeIncomeSearch)}</span>
                                                 {cat.isBuiltin && <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">内置</span>}
                                             </div>
                                             {!cat.isBuiltin && (
@@ -242,7 +281,7 @@ export default function Settings() {
                                     ))}
                                     {filteredIncome.length === 0 && (
                                         <p className="text-sm text-muted-foreground py-2">
-                                            {incomeSearch ? "无匹配项" : "暂无收入分类"}
+                                            {activeIncomeSearch ? "无匹配项" : "暂无收入分类"}
                                         </p>
                                     )}
                                 </div>
