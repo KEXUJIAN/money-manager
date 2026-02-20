@@ -17,6 +17,7 @@ interface ConfirmationModalProps {
     cancelText?: string
     onConfirm: () => void
     variant?: "default" | "destructive"
+    children?: React.ReactNode
 }
 
 export function ConfirmationModal({
@@ -28,6 +29,7 @@ export function ConfirmationModal({
     cancelText = "取消",
     onConfirm,
     variant = "default",
+    children,
 }: ConfirmationModalProps) {
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -40,6 +42,7 @@ export function ConfirmationModal({
                         </DialogDescription>
                     )}
                 </DialogHeader>
+                {children}
                 <DialogFooter>
                     <Button
                         variant="outline"

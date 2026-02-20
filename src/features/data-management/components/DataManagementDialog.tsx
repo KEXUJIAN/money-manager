@@ -1,8 +1,10 @@
-import { useState, useRef } from "react"
+import { useState, useRef, useMemo } from "react"
 import { db } from "@/db"
 import { Download, Upload, Trash2, FileText, Database, AlertTriangle } from "lucide-react"
 import { LEGACY_TXT_DELIMITER, LEGACY_TXT_HEADER } from "@/lib/constants"
 import { toast } from "sonner"
+import { useLiveQuery } from "dexie-react-hooks"
+import { v4 as uuidv4 } from "uuid"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -15,6 +17,7 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmationModal } from "@/components/ui/confirmation-modal"
+import { SearchableSelect } from "@/components/ui/searchable-select"
 import { parseLegacyTxt, importLegacyData } from "@/features/import/importLegacy"
 
 export function DataManagementDialog() {
@@ -23,8 +26,15 @@ export function DataManagementDialog() {
     const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
     const [jsonImportConfirmOpen, setJsonImportConfirmOpen] = useState(false)
     const [txtImportConfirmOpen, setTxtImportConfirmOpen] = useState(false)
+    const [selectedAccountId, setSelectedAccountId] = useState("")
     const pendingJsonData = useRef<ReturnType<typeof JSON.parse> | null>(null) // any 理由：JSON.parse 返回值即为 any
     const pendingTxtParsed = useRef<Awaited<ReturnType<typeof parseLegacyTxt>> | null>(null)
+
+    const accounts = useLiveQuery(() => db.accounts.toArray()) || []
+    const accountOptions = useMemo(
+        () => accounts.map(a => ({ value: a.id, label: a.name })),
+        [accounts]
+    )
 
     // ---- 数据导出 (JSON) ----
     async function exportJson() {
@@ -191,7 +201,29 @@ export function DataManagementDialog() {
         if (!parsed) return
         try {
             setImporting(true)
-            const result = await importLegacyData(parsed)
+
+            let targetAccountId = selectedAccountId
+
+            // 如果没有账户，自动创建默认账户
+            if (accounts.length === 0 || !targetAccountId) {
+                const newId = uuidv4()
+                const now = Date.now()
+                await db.accounts.add({
+                    id: newId,
+                    name: "默认账户",
+                    type: "cash",
+                    balance: 0,
+                    currency: "CNY",
+                    icon: "wallet",
+                    color: "green",
+                    createdAt: now,
+                    updatedAt: now,
+                })
+                targetAccountId = newId
+                toast.info("已自动创建默认账户")
+            }
+
+            const result = await importLegacyData(parsed, targetAccountId)
             toast.success(`导入完成！✅ 导入 ${result.imported} 条交易，📂 新建 ${result.categoriesCreated} 个分类`)
             setOpen(false)
         } catch (error) {
@@ -326,12 +358,29 @@ export function DataManagementDialog() {
             />
             <ConfirmationModal
                 open={txtImportConfirmOpen}
-                onOpenChange={setTxtImportConfirmOpen}
+                onOpenChange={(v) => {
+                    setTxtImportConfirmOpen(v)
+                    if (v && accounts.length > 0 && !selectedAccountId) {
+                        setSelectedAccountId(accounts[0].id)
+                    }
+                }}
                 title={`确定导入 ${pendingTxtParsed.current?.length ?? 0} 条交易记录？`}
-                description="导入的数据将追加到当前数据库中。"
+                description={accounts.length === 0 ? "当前没有账户，导入时将自动创建默认账户。" : "请选择导入数据挂载的目标账户："}
                 confirmText="确定导入"
                 onConfirm={doTxtImport}
-            />
+            >
+                {accounts.length > 0 && (
+                    <div className="py-2">
+                        <SearchableSelect
+                            options={accountOptions}
+                            value={selectedAccountId}
+                            onValueChange={setSelectedAccountId}
+                            placeholder="选择目标账户"
+                            searchPlaceholder="搜索账户..."
+                        />
+                    </div>
+                )}
+            </ConfirmationModal>
         </Dialog>
     )
 }

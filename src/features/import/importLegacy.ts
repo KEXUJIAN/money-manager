@@ -60,9 +60,12 @@ export function parseLegacyTxt(text: string): ParsedTransaction[] {
 
 /**
  * 将解析后的交易数据导入数据库
- * 自动匹配或创建分类，使用默认账户
+ * 自动匹配或创建分类，传入指定的目标账户 ID
  */
-export async function importLegacyData(transactions: ParsedTransaction[]): Promise<{
+export async function importLegacyData(
+    transactions: ParsedTransaction[],
+    accountId: string
+): Promise<{
     imported: number
     categoriesCreated: number
 }> {
@@ -72,13 +75,6 @@ export async function importLegacyData(transactions: ParsedTransaction[]): Promi
     for (const cat of existingCategories) {
         categoryMap.set(`${cat.type}:${cat.name}`, cat.id)
     }
-
-    // 获取默认账户（第一个）
-    const accounts = await db.accounts.toArray()
-    if (accounts.length === 0) {
-        throw new Error("请先创建至少一个账户")
-    }
-    const defaultAccountId = accounts[0].id
 
     let categoriesCreated = 0
     const now = Date.now()
@@ -108,7 +104,7 @@ export async function importLegacyData(transactions: ParsedTransaction[]): Promi
                 id: uuidv4(),
                 amount: tx.amount,
                 type: tx.type,
-                accountId: defaultAccountId,
+                accountId: accountId,
                 categoryId: categoryMap.get(mapKey),
                 date: tx.date.getTime(),
                 note: tx.note || undefined,
@@ -122,13 +118,13 @@ export async function importLegacyData(transactions: ParsedTransaction[]): Promi
 
         // 更新账户余额
         // WHY: 导入大量历史数据后重新计算余额比逐条更新高效
-        const allTxs = await db.transactions.where("accountId").equals(defaultAccountId).toArray()
+        const allTxs = await db.transactions.where("accountId").equals(accountId).toArray()
         let balance = 0
         for (const t of allTxs) {
             if (t.type === "income") balance += t.amount
             else if (t.type === "expense") balance -= t.amount
         }
-        await db.accounts.update(defaultAccountId, { balance })
+        await db.accounts.update(accountId, { balance })
     })
 
     return { imported: transactions.length, categoriesCreated }
