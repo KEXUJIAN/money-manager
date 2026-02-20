@@ -22,6 +22,23 @@ interface SearchableSelectProps {
     className?: string
 }
 
+/**
+ * 将搜索关键词在文本中高亮
+ */
+function highlightMatch(text: string, keyword: string) {
+    const idx = text.toLowerCase().indexOf(keyword.toLowerCase())
+    if (idx < 0) return text
+    const before = text.slice(0, idx)
+    const match = text.slice(idx, idx + keyword.length)
+    const after = text.slice(idx + keyword.length)
+    return (
+        <>
+            {before}
+            <mark className="bg-yellow-200 dark:bg-yellow-700/60 text-inherit rounded-sm px-0.5">{match}</mark>
+            {after}
+        </>
+    )
+}
 export function SearchableSelect({
     options,
     value,
@@ -102,7 +119,7 @@ export function SearchableSelect({
                                         value === option.value ? "opacity-100" : "opacity-0"
                                     )}
                                 />
-                                {option.label}
+                                {search ? highlightMatch(option.label, search) : option.label}
                             </button>
                         ))
                     )}
