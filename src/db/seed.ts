@@ -22,31 +22,18 @@ export const seedDatabase = async () => {
 
     const now = Date.now();
 
-    // 默认账户
-    await db.accounts.bulkAdd([
-        {
-            id: uuidv4(),
-            name: "现金",
-            type: "cash",
-            balance: 0,
-            currency: "CNY",
-            icon: "wallet",
-            color: "green",
-            createdAt: now,
-            updatedAt: now,
-        },
-        {
-            id: uuidv4(),
-            name: "支付宝",
-            type: "alipay",
-            balance: 0,
-            currency: "CNY",
-            icon: "alipay",
-            color: "blue",
-            createdAt: now,
-            updatedAt: now,
-        },
-    ]);
+    // 默认账户（仅创建一个，用户可自行添加更多）
+    await db.accounts.add({
+        id: uuidv4(),
+        name: "默认账户",
+        type: "cash",
+        balance: 0,
+        currency: "CNY",
+        icon: "wallet",
+        color: "green",
+        createdAt: now,
+        updatedAt: now,
+    });
 
     // 支出分类（内置，不可删除）
     const expenseCats = expenseCategories.map((name) => ({
