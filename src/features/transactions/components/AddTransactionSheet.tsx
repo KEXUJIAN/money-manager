@@ -46,7 +46,7 @@ const formSchema = z.object({
     accountId: z.string().min(1, "请选择账户"),
     categoryId: z.string().min(1, "请选择分类"),
     date: z.date(),
-    note: z.string().optional(),
+    note: z.string().max(50, "备注最多不能超过 50 个字符").optional(),
 })
 
 type FormValues = z.infer<typeof formSchema>
