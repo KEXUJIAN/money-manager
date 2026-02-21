@@ -2,8 +2,9 @@ import { useState, useEffect, useMemo } from "react"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
-import { generateId } from "@/lib/utils"
+import { generateId, cn } from "@/lib/utils"
 import { Plus } from "lucide-react"
+import { motion } from "framer-motion"
 
 import { db } from "@/db"
 import { useLiveQuery } from "dexie-react-hooks"
@@ -183,9 +184,34 @@ export function AddTransactionSheet() {
                 </SheetHeader>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="expense">支出</TabsTrigger>
-                        <TabsTrigger value="income">收入</TabsTrigger>
+                    <TabsList className="relative flex w-full h-12 bg-transparent p-0 border-b border-border/50 rounded-none">
+                        {["expense", "income"].map((tabValue) => {
+                            const isActive = activeTab === tabValue
+                            return (
+                                <TabsTrigger
+                                    key={tabValue}
+                                    value={tabValue}
+                                    className={cn(
+                                        "relative flex-1 h-full rounded-none bg-transparent hover:bg-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none px-4 pb-3 pt-2 text-base font-medium transition-colors",
+                                        isActive ? "text-primary font-semibold" : "text-muted-foreground"
+                                    )}
+                                >
+                                    {tabValue === "expense" ? "支出" : "收入"}
+                                    {isActive && (
+                                        <motion.div
+                                            layoutId="add-tx-tab-indicator"
+                                            className="absolute bottom-[-1px] left-0 right-0 h-[3px] bg-primary rounded-t-full z-10"
+                                            initial={false}
+                                            transition={{
+                                                type: "spring",
+                                                stiffness: 400,
+                                                damping: 30
+                                            }}
+                                        />
+                                    )}
+                                </TabsTrigger>
+                            )
+                        })}
                     </TabsList>
                 </Tabs>
 
