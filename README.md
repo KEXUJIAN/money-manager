@@ -105,8 +105,6 @@ src/
 请先阅读以下项目文档，了解项目架构和开发规范，然后告诉我你已准备好：
 - docs/architecture.md（架构设计）
 - docs/dev-guide.md（开发指南）
-- docs/milestone-v0.1.md（里程碑 v0.1）
-- docs/milestone-v0.2.md（里程碑 v0.2）
 ```
 
 ### 继续开发（添加新功能）
