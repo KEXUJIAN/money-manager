@@ -224,8 +224,8 @@ export function AddTransactionSheet() {
                                 <FormItem>
                                     <FormLabel>金额</FormLabel>
                                     <FormControl>
-                                        <div className="relative">
-                                            <span className="absolute left-3 top-2.5 text-muted-foreground">¥</span>
+                                        <div className="relative flex items-center">
+                                            <span className="absolute left-3 text-muted-foreground top-1/2 -translate-y-1/2">¥</span>
                                             <Input type="number" step="0.01" className="pl-7 text-lg font-bold" {...field} />
                                         </div>
                                     </FormControl>
