@@ -116,6 +116,69 @@ export function DataManagementDialog() {
         }
     }
 
+    // ---- 数据导出 (XLSX) ----
+    async function exportXlsx() {
+        try {
+            const XLSX = await import("xlsx")
+            const transactions = await db.transactions.toArray()
+            transactions.sort((a, b) => a.date - b.date)
+            const categories = await db.categories.toArray()
+            const accounts = await db.accounts.toArray()
+
+            const categoryMap = new Map()
+            categories.forEach(c => categoryMap.set(c.id, c.name))
+            const accountMap = new Map()
+            accounts.forEach(a => accountMap.set(a.id, a.name))
+
+            const fmtDate = (ts: number) => {
+                const d = new Date(ts)
+                const Y = d.getFullYear()
+                const M = String(d.getMonth() + 1).padStart(2, '0')
+                const D = String(d.getDate()).padStart(2, '0')
+                const H = String(d.getHours()).padStart(2, '0')
+                const m = String(d.getMinutes()).padStart(2, '0')
+                return `${Y}-${M}-${D} ${H}:${m}`
+            }
+
+            // 构建带有特定单元格类型的表单数据结构避免科学计数法
+            const data = transactions.map(tx => {
+                const amountSign = tx.type === 'expense' ? -1 : 1
+                return {
+                    "记账日期": { t: 's', v: fmtDate(tx.date) },
+                    "收支类型": { t: 's', v: tx.type === 'expense' ? '支出' : '收入' },
+                    "分类": { t: 's', v: categoryMap.get(tx.categoryId) || "其他" },
+                    "金额": { t: 'n', v: Number((tx.amount * amountSign).toFixed(2)) },
+                    "账户": { t: 's', v: accountMap.get(tx.accountId) || "未知账户" },
+                    "备注": { t: 's', v: tx.note || "" },
+                }
+            })
+
+            const worksheet = XLSX.utils.json_to_sheet(data, {
+                header: ["记账日期", "收支类型", "分类", "金额", "账户", "备注"],
+                skipHeader: false
+            })
+
+            // 设置列宽
+            worksheet['!cols'] = [
+                { wch: 18 }, // 日期
+                { wch: 10 }, // 类型
+                { wch: 15 }, // 分类
+                { wch: 12 }, // 金额
+                { wch: 15 }, // 账户
+                { wch: 30 }  // 备注
+            ]
+
+            const workbook = XLSX.utils.book_new()
+            XLSX.utils.book_append_sheet(workbook, worksheet, "账单数据")
+
+            XLSX.writeFile(workbook, `money-manager-export-${new Date().toISOString().slice(0, 10)}.xlsx`)
+            toast.success("导出 XLSX 成功")
+        } catch (error) {
+            console.error("XLSX 导出失败:", error)
+            toast.error("导出 XLSX 失败，请重试")
+        }
+    }
+
     // ---- 数据导入 (JSON) ----
     async function importJson() {
         const input = document.createElement("input")
@@ -312,18 +375,27 @@ export function DataManagementDialog() {
                                 <div className="flex flex-col items-start gap-1">
                                     <div className="flex items-center">
                                         <Download className="mr-2 h-4 w-4" />
-                                        <span>导出备份 (JSON)</span>
+                                        <span>导出原始备份 (JSON)</span>
                                     </div>
-                                    <span className="text-xs text-muted-foreground">完整备份所有数据，用于迁移或恢复。</span>
+                                    <span className="text-xs text-muted-foreground">完整备份所有账户与分类等数据库原文，用于整体迁移或恢复。</span>
+                                </div>
+                            </Button>
+                            <Button variant="outline" className="w-full justify-start h-auto py-3" onClick={exportXlsx}>
+                                <div className="flex flex-col items-start gap-1">
+                                    <div className="flex items-center">
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        <span>导出报表 (XLSX)</span>
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">导出原生 Excel 文件，规避科学计数法，方便进行高复杂度的二次报表分析。</span>
                                 </div>
                             </Button>
                             <Button variant="outline" className="w-full justify-start h-auto py-3" onClick={exportTxt}>
                                 <div className="flex flex-col items-start gap-1">
                                     <div className="flex items-center">
                                         <FileText className="mr-2 h-4 w-4" />
-                                        <span>导出账单 (TXT)</span>
+                                        <span>导出文本账单 (TXT)</span>
                                     </div>
-                                    <span className="text-xs text-muted-foreground">导出为可读文本格式，兼容其他软件。</span>
+                                    <span className="text-xs text-muted-foreground">导出为简单的可读文本格式，兼容旧版钱迹等其他记账软件格式。</span>
                                 </div>
                             </Button>
                         </div>
