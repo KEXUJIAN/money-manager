@@ -15,6 +15,7 @@ export interface DailyData {
 }
 
 export interface CategoryData {
+    id: string
     name: string
     value: number
     color: string
@@ -29,11 +30,7 @@ export interface StatsData {
     incomeByCategory: CategoryData[]
 }
 
-// 预设颜色列表
-const COLORS = [
-    "#ef4444", "#f97316", "#eab308", "#22c55e", "#06b6d4",
-    "#3b82f6", "#8b5cf6", "#ec4899", "#64748b", "#14b8a6",
-]
+
 
 export function useStats(dateRange: DateRange): StatsData | undefined {
     return useLiveQuery(async () => {
@@ -131,17 +128,19 @@ export function useStats(dateRange: DateRange): StatsData | undefined {
         // 转换分类数据
         const expenseByCategory: CategoryData[] = Array.from(expenseCategoryMap.entries())
             .map(([catId, value], i) => ({
+                id: catId,
                 name: categoryMap.get(catId)?.name || "Unknown",
                 value,
-                color: COLORS[i % COLORS.length],
+                color: `hsl(${(i * 137.5) % 360}, 70%, 50%)`,
             }))
             .sort((a, b) => b.value - a.value)
 
         const incomeByCategory: CategoryData[] = Array.from(incomeCategoryMap.entries())
             .map(([catId, value], i) => ({
+                id: catId,
                 name: categoryMap.get(catId)?.name || "Unknown",
                 value,
-                color: COLORS[i % COLORS.length],
+                color: `hsl(${(i * 137.5) % 360}, 70%, 50%)`,
             }))
             .sort((a, b) => b.value - a.value)
 

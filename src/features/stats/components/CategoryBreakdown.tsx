@@ -9,6 +9,7 @@ import {
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { CategoryData } from "../hooks/useStats"
+import { ChevronDown, ChevronRight } from "lucide-react"
 
 const renderActiveShape = (props: any) => {
     const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props
@@ -52,15 +53,18 @@ export function CategoryBreakdown({ title, data }: CategoryBreakdownProps) {
     }
 
     const [activeIndex, setActiveIndex] = useState(-1)
+    const [expandedOther, setExpandedOther] = useState(false)
 
-    const processedData = useMemo(() => {
+    const { processedData, subCategories } = useMemo(() => {
         const total = data.reduce((sum, item) => sum + item.value, 0)
         const threshold = total * 0.025 // 2.5% 作为阈值
 
         let otherValue = 0
+        const subCats: CategoryData[] = []
         const filtered = data.filter((item) => {
             if (item.value < threshold) {
                 otherValue += item.value
+                subCats.push(item)
                 return false
             }
             return true
@@ -68,15 +72,17 @@ export function CategoryBreakdown({ title, data }: CategoryBreakdownProps) {
 
         // 按降序排列主要分类
         filtered.sort((a, b) => b.value - a.value)
+        subCats.sort((a, b) => b.value - a.value)
 
-        if (otherValue > 0) {
+        if (subCats.length > 0) {
             filtered.push({
-                name: "其他",
+                id: "aggregated-other",
+                name: `其他聚合 (${subCats.length}项)`,
                 value: otherValue,
                 color: "#94a3b8", // Slate 400
             })
         }
-        return filtered
+        return { processedData: filtered, subCategories: subCats }
     }, [data])
 
     return (
@@ -102,8 +108,8 @@ export function CategoryBreakdown({ title, data }: CategoryBreakdownProps) {
                                 onMouseEnter={(_, index) => setActiveIndex(index)}
                                 onMouseLeave={() => setActiveIndex(-1)}
                             >
-                                {processedData.map((entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                {processedData.map((entry) => (
+                                    <Cell key={`cell-${entry.id}`} fill={entry.color} />
                                 ))}
                             </Pie>
                             <Tooltip formatter={(value: any) => formatter.format(value)} /> {/* any 理由：Recharts Tooltip formatter value 类型包含多种可能 */}
@@ -112,27 +118,55 @@ export function CategoryBreakdown({ title, data }: CategoryBreakdownProps) {
                 </div>
                 {/* 分类明细列表 */}
                 <div className="mt-4 space-y-2">
-                    {processedData.map((item, index) => (
-                        <div
-                            key={item.name}
-                            className="flex items-center justify-between text-sm p-1.5 rounded-md hover:bg-muted/50 cursor-default transition-colors"
-                            onMouseEnter={() => setActiveIndex(index)}
-                            onMouseLeave={() => setActiveIndex(-1)}
-                        >
-                            <div className="flex items-center gap-2">
+                    {processedData.map((item, index) => {
+                        const isOther = item.id === "aggregated-other"
+                        return (
+                            <div key={item.id} className="flex flex-col">
                                 <div
-                                    className="h-3 w-3 rounded-full shadow-sm"
-                                    style={{ backgroundColor: item.color }}
-                                />
-                                <span className={activeIndex === index ? "font-semibold text-foreground" : "text-muted-foreground"}>
-                                    {item.name}
-                                </span>
+                                    className={`flex items-center justify-between text-sm p-1.5 rounded-md transition-colors ${isOther ? "cursor-pointer hover:bg-muted/70" : "cursor-default hover:bg-muted/50"
+                                        }`}
+                                    onMouseEnter={() => setActiveIndex(index)}
+                                    onMouseLeave={() => setActiveIndex(-1)}
+                                    onClick={() => isOther && setExpandedOther(!expandedOther)}
+                                >
+                                    <div className="flex items-center gap-2">
+                                        <div
+                                            className="h-3 w-3 rounded-full flex-shrink-0 shadow-sm"
+                                            style={{ backgroundColor: item.color }}
+                                        />
+                                        <span className={activeIndex === index ? "font-semibold text-foreground" : "text-muted-foreground flex items-center gap-1"}>
+                                            {item.name}
+                                            {isOther && (
+                                                <span className="text-muted-foreground/50">
+                                                    {expandedOther ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                                                </span>
+                                            )}
+                                        </span>
+                                    </div>
+                                    <span className={activeIndex === index ? "font-bold" : "font-medium"}>
+                                        {formatter.format(item.value)}
+                                    </span>
+                                </div>
+                                {/* 渲染聚合的其他项 */}
+                                {isOther && expandedOther && subCategories.length > 0 && (
+                                    <div className="mt-1 ml-6 pl-2 border-l-2 border-muted space-y-1">
+                                        {subCategories.map((subItem) => (
+                                            <div key={subItem.id} className="flex items-center justify-between text-xs p-1 text-muted-foreground/80 hover:text-foreground hover:bg-muted/30 rounded-md transition-colors">
+                                                <div className="flex items-center gap-2">
+                                                    <div
+                                                        className="h-2 w-2 rounded-full flex-shrink-0 opacity-80"
+                                                        style={{ backgroundColor: subItem.color }}
+                                                    />
+                                                    <span>{subItem.name}</span>
+                                                </div>
+                                                <span>{formatter.format(subItem.value)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                            <span className={activeIndex === index ? "font-bold" : "font-medium"}>
-                                {formatter.format(item.value)}
-                            </span>
-                        </div>
-                    ))}
+                        )
+                    })}
                 </div>
             </CardContent>
         </Card>
