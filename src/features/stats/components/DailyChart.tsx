@@ -9,7 +9,7 @@ import {
     Legend,
 } from "recharts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { DailyData } from "../hooks/useMonthlyStats"
+import type { DailyData } from "../hooks/useStats"
 
 interface DailyChartProps {
     data: DailyData[]
