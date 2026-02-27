@@ -6,6 +6,7 @@ import {
     format,
 } from "date-fns"
 import type { DateRange } from "../utils"
+import { plus, minus, formatAmount } from "@/lib/math"
 
 export interface DailyData {
     date: string        // "MM/dd" or "yyyy-MM-dd" depending on range?
@@ -58,19 +59,19 @@ export function useStats(dateRange: DateRange): StatsData | undefined {
 
         for (const tx of transactions) {
             if (tx.type === "income") {
-                totalIncome += tx.amount
+                totalIncome = plus(totalIncome, tx.amount)
                 if (tx.categoryId) {
                     incomeCategoryMap.set(
                         tx.categoryId,
-                        (incomeCategoryMap.get(tx.categoryId) || 0) + tx.amount
+                        plus((incomeCategoryMap.get(tx.categoryId) || 0), tx.amount)
                     )
                 }
             } else if (tx.type === "expense") {
-                totalExpense += tx.amount
+                totalExpense = plus(totalExpense, tx.amount)
                 if (tx.categoryId) {
                     expenseCategoryMap.set(
                         tx.categoryId,
-                        (expenseCategoryMap.get(tx.categoryId) || 0) + tx.amount
+                        plus((expenseCategoryMap.get(tx.categoryId) || 0), tx.amount)
                     )
                 }
             }
@@ -82,8 +83,8 @@ export function useStats(dateRange: DateRange): StatsData | undefined {
             // 暂时统一按天。
             const dayKey = format(tx.date, "yyyy-MM-dd")
             const existing = dailyMap.get(dayKey) || { income: 0, expense: 0 }
-            if (tx.type === "income") existing.income += tx.amount
-            if (tx.type === "expense") existing.expense += tx.amount
+            if (tx.type === "income") existing.income = plus(existing.income, tx.amount)
+            if (tx.type === "expense") existing.expense = plus(existing.expense, tx.amount)
             dailyMap.set(dayKey, existing)
         }
 
@@ -145,9 +146,9 @@ export function useStats(dateRange: DateRange): StatsData | undefined {
             .sort((a, b) => b.value - a.value)
 
         return {
-            totalIncome,
-            totalExpense,
-            balance: totalIncome - totalExpense,
+            totalIncome: formatAmount(totalIncome),
+            totalExpense: formatAmount(totalExpense),
+            balance: formatAmount(minus(totalIncome, totalExpense)),
             dailyData,
             expenseByCategory,
             incomeByCategory,

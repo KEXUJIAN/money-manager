@@ -1,6 +1,7 @@
 import { db } from "@/db"
 import { LEGACY_TXT_DELIMITER } from "@/lib/constants"
 import { generateId } from "@/lib/utils"
+import { plus, minus } from "@/lib/math"
 
 export interface ParsedTransaction {
     date: Date
@@ -184,8 +185,8 @@ export async function importLegacyData(
         const allTxs = await db.transactions.where("accountId").equals(accountId).toArray()
         let balance = 0
         for (const t of allTxs) {
-            if (t.type === "income") balance += t.amount
-            else if (t.type === "expense") balance -= t.amount
+            if (t.type === "income") balance = plus(balance, t.amount)
+            else if (t.type === "expense") balance = minus(balance, t.amount)
         }
         await db.accounts.update(accountId, { balance })
     })

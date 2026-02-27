@@ -19,11 +19,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmationModal } from "@/components/ui/confirmation-modal"
 import { SearchableSelect } from "@/components/ui/searchable-select"
 import { parseLegacyTxt, importLegacyData, checkTxtDuplicates } from "@/features/import/importLegacy"
+import { LoadingMask } from "@/components/ui/loading-mask"
 
 export function DataManagementDialog() {
     const [open, setOpen] = useState(false)
     const [importing, setImporting] = useState(false)
+    const [isProcessing, setIsProcessing] = useState(false)
     const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
+    const [clearAccountConfirmOpen, setClearAccountConfirmOpen] = useState(false)
+    const [selectedAccountToClear, setSelectedAccountToClear] = useState("")
     const [jsonImportConfirmOpen, setJsonImportConfirmOpen] = useState(false)
     const [txtImportConfirmOpen, setTxtImportConfirmOpen] = useState(false)
     const [txtDuplicateConfirmOpen, setTxtDuplicateConfirmOpen] = useState(false)
@@ -42,6 +46,7 @@ export function DataManagementDialog() {
     // ---- 数据导出 (JSON) ----
     async function exportJson() {
         try {
+            setIsProcessing(true)
             const accounts = await db.accounts.toArray()
             const categoriesData = await db.categories.toArray()
             const transactions = await db.transactions.toArray()
@@ -64,6 +69,8 @@ export function DataManagementDialog() {
         } catch (error) {
             console.error("导出失败:", error)
             toast.error("导出失败，请重试")
+        } finally {
+            setIsProcessing(false)
         }
     }
 
@@ -113,6 +120,8 @@ export function DataManagementDialog() {
         } catch (error) {
             console.error("TXT 导出失败:", error)
             toast.error("导出失败，请重试")
+        } finally {
+            setIsProcessing(false)
         }
     }
 
@@ -176,6 +185,8 @@ export function DataManagementDialog() {
         } catch (error) {
             console.error("XLSX 导出失败:", error)
             toast.error("导出 XLSX 失败，请重试")
+        } finally {
+            setIsProcessing(false)
         }
     }
 
@@ -211,6 +222,7 @@ export function DataManagementDialog() {
         const data = pendingJsonData.current
         if (!data) return
         try {
+            setIsProcessing(true)
             await db.transaction("rw", db.accounts, db.categories, db.transactions, async () => {
                 await db.accounts.clear()
                 await db.categories.clear()
@@ -227,6 +239,7 @@ export function DataManagementDialog() {
             console.error("导入失败:", error)
             toast.error("导入失败，请检查文件格式")
         } finally {
+            setIsProcessing(false)
             pendingJsonData.current = null
         }
     }
@@ -333,16 +346,45 @@ export function DataManagementDialog() {
     // ---- 清空数据 ----
     async function clearAllData() {
         try {
+            setIsProcessing(true)
             await db.transaction("rw", db.accounts, db.categories, db.transactions, async () => {
                 await db.accounts.clear()
-                await db.categories.clear()
+                // 保留内置分类 (isBuiltin: true)
+                const customCategories = await db.categories.filter(c => !c.isBuiltin).primaryKeys()
+                await db.categories.bulkDelete(customCategories)
                 await db.transactions.clear()
             })
-            toast.success("数据已清空")
+            toast.success("数据已清空，系统内置分类已保留")
             setOpen(false)
         } catch (error) {
             console.error("清空失败:", error)
             toast.error("清空失败，请重试")
+        } finally {
+            setIsProcessing(false)
+            setClearConfirmOpen(false)
+        }
+    }
+
+    async function clearAccountData() {
+        if (!selectedAccountToClear) return
+        try {
+            setIsProcessing(true)
+            await db.transaction("rw", db.transactions, db.accounts, async () => {
+                const txs = await db.transactions.where("accountId").equals(selectedAccountToClear).primaryKeys()
+                await db.transactions.bulkDelete(txs)
+                const account = await db.accounts.get(selectedAccountToClear)
+                if (account) {
+                    await db.accounts.update(selectedAccountToClear, { balance: 0 })
+                }
+            })
+            toast.success("该账户的交易记录已清空")
+            setSelectedAccountToClear("")
+        } catch (error) {
+            console.error("清空特定账户失败:", error)
+            toast.error("清空失败，请重试")
+        } finally {
+            setIsProcessing(false)
+            setClearAccountConfirmOpen(false)
         }
     }
 
@@ -428,25 +470,64 @@ export function DataManagementDialog() {
                         <div className="rounded-md border border-destructive/50 p-4">
                             <div className="flex items-center gap-2 text-destructive mb-2">
                                 <AlertTriangle className="h-4 w-4" />
-                                <h4 className="font-medium">清空所有数据</h4>
+                                <h4 className="font-medium">清空数据</h4>
                             </div>
                             <p className="text-sm text-muted-foreground mb-4">
-                                此操作将永久删除所有账户、分类和交易记录，且无法恢复。请谨慎操作。
+                                您可以选择清空特定账户的交易记录，或清空系统中的所有数据。内置分类将始终保留。
                             </p>
-                            <Button variant="destructive" className="w-full" onClick={() => setClearConfirmOpen(true)}>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                清空数据
-                            </Button>
+
+                            {accounts.length > 0 && (
+                                <div className="flex flex-col gap-2 mb-6 p-3 bg-secondary/20 rounded-lg">
+                                    <label className="text-sm font-medium">清空特定账户交易记录</label>
+                                    <div className="flex gap-2 items-center">
+                                        <div className="flex-1">
+                                            <SearchableSelect
+                                                options={accountOptions}
+                                                value={selectedAccountToClear}
+                                                onValueChange={setSelectedAccountToClear}
+                                                placeholder="选择要清空的账户"
+                                                searchPlaceholder="搜索账户..."
+                                            />
+                                        </div>
+                                        <Button
+                                            variant="outline"
+                                            className="text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                                            disabled={!selectedAccountToClear}
+                                            onClick={() => setClearAccountConfirmOpen(true)}
+                                            title="清空该账户"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="flex flex-col gap-2">
+                                <label className="text-sm font-medium text-destructive">危险操作</label>
+                                <Button variant="destructive" className="w-full" onClick={() => setClearConfirmOpen(true)}>
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    清空所有数据 (保留内置分类)
+                                </Button>
+                            </div>
                         </div>
                     </TabsContent>
                 </Tabs>
             </DialogContent>
 
             <ConfirmationModal
+                open={clearAccountConfirmOpen}
+                onOpenChange={setClearAccountConfirmOpen}
+                title="确定清空该账户吗？"
+                description="此操作将永久删除该账户下的所有交易记录（账户本身将保留），不可撤销！"
+                confirmText="清空该账户记录"
+                variant="destructive"
+                onConfirm={clearAccountData}
+            />
+            <ConfirmationModal
                 open={clearConfirmOpen}
                 onOpenChange={setClearConfirmOpen}
                 title="确定要清空所有数据吗？"
-                description="此操作不可撤销！建议您先导出备份。确定继续？"
+                description="此操作将清空所有账户和交易，但内置分类会保留。不可撤销！确定继续？"
                 confirmText="清空所有数据"
                 variant="destructive"
                 onConfirm={clearAllData}
@@ -496,6 +577,8 @@ export function DataManagementDialog() {
                 onConfirm={() => executeTxtImport(true)}      // confirm 表示选用推荐安全操作
                 onCancel={() => executeTxtImport(false)}      // cancel 这里当作另一个 action
             />
+
+            <LoadingMask open={isProcessing || importing} text="数据处理中，请稍候..." />
         </Dialog>
     )
 }
