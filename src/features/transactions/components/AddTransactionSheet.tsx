@@ -5,6 +5,7 @@ import * as z from "zod"
 import { generateId, cn } from "@/lib/utils"
 import { Plus } from "lucide-react"
 import { motion } from "framer-motion"
+import { plus, minus, formatAmount } from "@/lib/math"
 
 import { db } from "@/db"
 import { useLiveQuery } from "dexie-react-hooks"
@@ -52,9 +53,22 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>
 
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog"
+
 export function AddTransactionSheet() {
     const [open, setOpen] = useState(false)
     const [activeTab, setActiveTab] = useState("expense")
+
+    // Create Category Modal States
+    const [createCategoryOpen, setCreateCategoryOpen] = useState(false)
+    const [newCategoryName, setNewCategoryName] = useState("")
 
     const accounts = useLiveQuery(() => db.accounts.toArray()) || []
     const categories = useLiveQuery(() => db.categories.toArray()) || []
@@ -117,6 +131,22 @@ export function AddTransactionSheet() {
         }
     }, [filteredCategories, form])
 
+    async function handleCreateCategory() {
+        if (!newCategoryName.trim()) return
+        const newCatId = generateId()
+        const now = Date.now()
+        await db.categories.add({
+            id: newCatId,
+            name: newCategoryName.trim(),
+            type: activeTab as "income" | "expense",
+            createdAt: now,
+            updatedAt: now,
+        })
+        form.setValue("categoryId", newCatId)
+        setCreateCategoryOpen(false)
+        setNewCategoryName("")
+    }
+
     async function onSubmit(values: FormValues) {
         try {
             const transactionId = generateId(values.date)
@@ -133,9 +163,10 @@ export function AddTransactionSheet() {
             }
 
             await db.transaction('rw', db.transactions, db.accounts, async () => {
+                const finalAmount = formatAmount(values.amount)
                 await db.transactions.add({
                     id: transactionId,
-                    amount: values.amount,
+                    amount: finalAmount,
                     type: values.type,
                     accountId: values.accountId,
                     categoryId: values.categoryId,
@@ -149,8 +180,8 @@ export function AddTransactionSheet() {
                 const account = await db.accounts.get(values.accountId)
                 if (account) {
                     const newBalance = values.type === 'expense'
-                        ? account.balance - values.amount
-                        : account.balance + values.amount
+                        ? minus(account.balance, finalAmount)
+                        : plus(account.balance, finalAmount)
                     await db.accounts.update(values.accountId, { balance: newBalance })
                 }
             })
@@ -267,6 +298,11 @@ export function AddTransactionSheet() {
                                             onValueChange={field.onChange}
                                             placeholder="选择分类"
                                             searchPlaceholder="搜索分类..."
+                                            onCreateNew={(val) => {
+                                                setNewCategoryName(val)
+                                                setCreateCategoryOpen(true)
+                                            }}
+                                            createNewText="+ 新建分类"
                                         />
                                     </FormControl>
                                     <FormMessage />
@@ -296,9 +332,19 @@ export function AddTransactionSheet() {
                             name="note"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>备注</FormLabel>
+                                    <div className="flex items-center justify-between">
+                                        <FormLabel>备注</FormLabel>
+                                        <span className="text-xs text-muted-foreground">
+                                            {field.value?.length || 0}/50
+                                        </span>
+                                    </div>
                                     <FormControl>
-                                        <Textarea placeholder="备注（可选，为空则自动填充分类名）" {...field} />
+                                        <Textarea
+                                            placeholder="备注（可选，为空则自动填充分类名）"
+                                            className="resize-none h-20"
+                                            maxLength={50}
+                                            {...field}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -311,6 +357,35 @@ export function AddTransactionSheet() {
                     </form>
                 </Form>
             </SheetContent>
+
+            <Dialog open={createCategoryOpen} onOpenChange={setCreateCategoryOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>新建{activeTab === "expense" ? "支出" : "收入"}分类</DialogTitle>
+                        <DialogDescription>
+                            快速添加一个适用于当前记账类型的分类
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="py-4">
+                        <Input
+                            placeholder="输入分类名称..."
+                            value={newCategoryName}
+                            onChange={(e) => setNewCategoryName(e.target.value)}
+                            onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                    e.preventDefault()
+                                    handleCreateCategory()
+                                }
+                            }}
+                            autoFocus
+                        />
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setCreateCategoryOpen(false)}>取消</Button>
+                        <Button onClick={handleCreateCategory} disabled={!newCategoryName.trim()}>确定</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </Sheet>
     )
 }
