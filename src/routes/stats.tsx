@@ -3,6 +3,7 @@ import { format, add, sub } from "date-fns"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import {
     Select,
     SelectContent,
@@ -15,9 +16,11 @@ import { MonthlyOverview } from "@/features/stats/components/MonthlyOverview"
 import { DailyChart } from "@/features/stats/components/DailyChart"
 import { CategoryBreakdown } from "@/features/stats/components/CategoryBreakdown"
 import { StatsPeriodPicker } from "@/features/stats/components/StatsPeriodPicker"
+import { TransactionsTable } from "@/features/stats/components/TransactionsTable"
 import { getDateRange, type TimeDimension } from "@/features/stats/utils"
 
 export default function Stats() {
+    const [viewMode, setViewMode] = useState<"charts" | "table">("charts")
     const [dimension, setDimension] = useState<TimeDimension>("month")
     const [currentDate, setCurrentDate] = useState(new Date())
 
@@ -85,66 +88,83 @@ export default function Stats() {
     return (
         <div className="space-y-6">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <h2 className="text-xl font-bold">统计分析</h2>
-
-                {/* 快捷按钮组 */}
-                <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setShortcut("day", "today")}>今天</Button>
-                    <Button variant="outline" size="sm" onClick={() => setShortcut("day", "yesterday")}>昨天</Button>
-                    <Button variant="outline" size="sm" onClick={() => setShortcut("week", "last-week")}>上周</Button>
-                    <Button variant="outline" size="sm" onClick={() => setShortcut("month", "last-month")}>上月</Button>
-                    <Button variant="outline" size="sm" onClick={() => setShortcut("year", "this-year")}>本年度</Button>
-                </div>
-            </div>
-
-            {/* 控制栏 */}
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between bg-card p-4 rounded-lg border shadow-sm">
-                <div className="flex items-center gap-2">
-                    <Select value={dimension} onValueChange={(v) => setDimension(v as TimeDimension)}>
-                        <SelectTrigger className="w-[100px]">
-                            <SelectValue placeholder="维度" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="day">按日</SelectItem>
-                            <SelectItem value="week">按周</SelectItem>
-                            <SelectItem value="month">按月</SelectItem>
-                            <SelectItem value="year">按年</SelectItem>
-                            <SelectItem value="all">全部</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
+                <h2 className="text-xl font-bold">数据概览</h2>
 
                 <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" onClick={() => navigate("prev")} disabled={dimension === "all"}>
-                        <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <StatsPeriodPicker
-                        dimension={dimension}
-                        currentDate={currentDate}
-                        onDateChange={setCurrentDate}
-                        displayText={formatRangeDisplay()}
-                    />
-                    <Button variant="ghost" size="icon" onClick={() => navigate("next")} disabled={dimension === "all"}>
-                        <ChevronRight className="h-4 w-4" />
-                    </Button>
+                    <Tabs value={viewMode} onValueChange={(v: any) => setViewMode(v)}>
+                        <TabsList>
+                            <TabsTrigger value="charts">统计图表</TabsTrigger>
+                            <TabsTrigger value="table">全量明细</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
                 </div>
             </div>
 
-            {/* 概览卡片 */}
-            <MonthlyOverview
-                totalIncome={stats.totalIncome}
-                totalExpense={stats.totalExpense}
-                balance={stats.balance}
-            />
+            {viewMode === "charts" ? (
+                <div className="space-y-6 animate-in fade-in duration-300">
+                    {/* 快捷按钮组 */}
+                    <div className="flex flex-wrap gap-2 justify-end">
+                        <Button variant="outline" size="sm" onClick={() => setShortcut("day", "today")}>今天</Button>
+                        <Button variant="outline" size="sm" onClick={() => setShortcut("day", "yesterday")}>昨天</Button>
+                        <Button variant="outline" size="sm" onClick={() => setShortcut("week", "last-week")}>上周</Button>
+                        <Button variant="outline" size="sm" onClick={() => setShortcut("month", "last-month")}>上月</Button>
+                        <Button variant="outline" size="sm" onClick={() => setShortcut("year", "this-year")}>本年度</Button>
+                    </div>
 
-            {/* 趋势图 */}
-            <DailyChart data={stats.dailyData} />
+                    {/* 控制栏 */}
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between bg-card p-4 rounded-lg border shadow-sm">
+                        <div className="flex items-center gap-2">
+                            <Select value={dimension} onValueChange={(v) => setDimension(v as TimeDimension)}>
+                                <SelectTrigger className="w-[100px]">
+                                    <SelectValue placeholder="维度" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="day">按日</SelectItem>
+                                    <SelectItem value="week">按周</SelectItem>
+                                    <SelectItem value="month">按月</SelectItem>
+                                    <SelectItem value="year">按年</SelectItem>
+                                    <SelectItem value="all">全部</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
 
-            {/* 分类饼图 */}
-            <div className="grid gap-4 md:grid-cols-2">
-                <CategoryBreakdown title="支出分类" data={stats.expenseByCategory} />
-                <CategoryBreakdown title="收入分类" data={stats.incomeByCategory} />
-            </div>
+                        <div className="flex items-center gap-4">
+                            <Button variant="ghost" size="icon" onClick={() => navigate("prev")} disabled={dimension === "all"}>
+                                <ChevronLeft className="h-4 w-4" />
+                            </Button>
+                            <StatsPeriodPicker
+                                dimension={dimension}
+                                currentDate={currentDate}
+                                onDateChange={setCurrentDate}
+                                displayText={formatRangeDisplay()}
+                            />
+                            <Button variant="ghost" size="icon" onClick={() => navigate("next")} disabled={dimension === "all"}>
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    </div>
+
+                    {/* 概览卡片 */}
+                    <MonthlyOverview
+                        totalIncome={stats.totalIncome}
+                        totalExpense={stats.totalExpense}
+                        balance={stats.balance}
+                    />
+
+                    {/* 趋势图 */}
+                    <DailyChart data={stats.dailyData} />
+
+                    {/* 分类饼图 */}
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <CategoryBreakdown title="支出分类" data={stats.expenseByCategory} />
+                        <CategoryBreakdown title="收入分类" data={stats.incomeByCategory} />
+                    </div>
+                </div>
+            ) : (
+                <div className="animate-in fade-in duration-300">
+                    <TransactionsTable />
+                </div>
+            )}
         </div>
     )
 }
