@@ -44,11 +44,36 @@ function getNow(): Date {
 
 const formSchema = z.object({
     amount: z.coerce.number().min(0.01, "金额必须大于 0"),
-    type: z.enum(['income', 'expense']),
+    type: z.enum(['income', 'expense', 'transfer']),
     accountId: z.string().min(1, "请选择账户"),
-    categoryId: z.string().min(1, "请选择分类"),
+    transferToAccountId: z.string().optional(),
+    categoryId: z.string().optional(),
     date: z.date(),
     note: z.string().max(50, "备注最多不能超过 50 个字符").optional(),
+}).superRefine((data, ctx) => {
+    if (data.type !== 'transfer' && !data.categoryId) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "请选择分类",
+            path: ["categoryId"]
+        })
+    }
+    if (data.type === 'transfer') {
+        if (!data.transferToAccountId) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "请选择转入账户",
+                path: ["transferToAccountId"]
+            })
+        }
+        if (data.accountId && data.transferToAccountId && data.accountId === data.transferToAccountId) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "转出和转入账户不能相同",
+                path: ["transferToAccountId"]
+            })
+        }
+    }
 })
 
 type FormValues = z.infer<typeof formSchema>
@@ -95,6 +120,7 @@ export function AddTransactionSheet() {
             amount: 0,
             type: "expense",
             accountId: "",
+            transferToAccountId: "",
             categoryId: "",
             date: getNow(),
             note: "",
@@ -110,9 +136,14 @@ export function AddTransactionSheet() {
 
     // 切换 Tab 时同步 type
     useEffect(() => {
-        form.setValue("type", activeTab as "income" | "expense")
-        // 切换类型后重置分类
-        form.setValue("categoryId", "")
+        form.setValue("type", activeTab as "income" | "expense" | "transfer")
+        // 切换类型后重置无关项
+        if (activeTab === "transfer") {
+            form.setValue("categoryId", "")
+        } else {
+            form.setValue("transferToAccountId", "")
+            form.setValue("categoryId", "")
+        }
     }, [activeTab, form])
 
     // 账户加载后设置默认值（只在 accountId 为空时）
@@ -169,28 +200,41 @@ export function AddTransactionSheet() {
                     amount: finalAmount,
                     type: values.type,
                     accountId: values.accountId,
-                    categoryId: values.categoryId,
+                    transferToAccountId: values.type === 'transfer' ? values.transferToAccountId : undefined,
+                    categoryId: values.type === 'transfer' ? undefined : values.categoryId,
                     date: dateObj.getTime(),
                     note,
                     createdAt: Date.now(),
                     updatedAt: Date.now(),
                 })
 
-                // 更新账户余额
+                // 更新转出/所属账户余额
                 const account = await db.accounts.get(values.accountId)
                 if (account) {
-                    const newBalance = values.type === 'expense'
-                        ? minus(account.balance, finalAmount)
-                        : plus(account.balance, finalAmount)
+                    let newBalance = account.balance
+                    if (values.type === 'expense' || values.type === 'transfer') {
+                        newBalance = minus(account.balance, finalAmount)
+                    } else if (values.type === 'income') {
+                        newBalance = plus(account.balance, finalAmount)
+                    }
                     await db.accounts.update(values.accountId, { balance: newBalance })
+                }
+
+                // 更新转入账户余额
+                if (values.type === 'transfer' && values.transferToAccountId) {
+                    const toAccount = await db.accounts.get(values.transferToAccountId)
+                    if (toAccount) {
+                        await db.accounts.update(values.transferToAccountId, { balance: plus(toAccount.balance, finalAmount) })
+                    }
                 }
             })
 
             setOpen(false)
             form.reset({
                 amount: 0,
-                type: activeTab as "income" | "expense",
+                type: activeTab as "income" | "expense" | "transfer",
                 accountId: values.accountId, // 保留上次使用的账户
+                transferToAccountId: "",
                 categoryId: "",
                 date: getNow(),
                 note: "",
@@ -216,7 +260,7 @@ export function AddTransactionSheet() {
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">
                     <TabsList className="relative flex w-full h-12 bg-transparent p-0 border-b border-border/50 rounded-none">
-                        {["expense", "income"].map((tabValue) => {
+                        {["expense", "income", "transfer"].map((tabValue) => {
                             const isActive = activeTab === tabValue
                             return (
                                 <TabsTrigger
@@ -227,7 +271,7 @@ export function AddTransactionSheet() {
                                         isActive ? "text-primary font-semibold" : "text-muted-foreground"
                                     )}
                                 >
-                                    {tabValue === "expense" ? "支出" : "收入"}
+                                    {tabValue === "expense" ? "支出" : tabValue === "income" ? "收入" : "转账"}
                                     {isActive && (
                                         <motion.div
                                             layoutId="add-tx-tab-indicator"
@@ -270,7 +314,7 @@ export function AddTransactionSheet() {
                             name="accountId"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>账户</FormLabel>
+                                    <FormLabel>{activeTab === "transfer" ? "出金账户" : "账户"}</FormLabel>
                                     <FormControl>
                                         <SearchableSelect
                                             options={accountOptions}
@@ -285,30 +329,54 @@ export function AddTransactionSheet() {
                             )}
                         />
 
-                        <FormField
-                            control={form.control}
-                            name="categoryId"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>分类</FormLabel>
-                                    <FormControl>
-                                        <SearchableSelect
-                                            options={categoryOptions}
-                                            value={field.value}
-                                            onValueChange={field.onChange}
-                                            placeholder="选择分类"
-                                            searchPlaceholder="搜索分类..."
-                                            onCreateNew={(val) => {
-                                                setNewCategoryName(val)
-                                                setCreateCategoryOpen(true)
-                                            }}
-                                            createNewText="+ 新建分类"
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        {activeTab === "transfer" && (
+                            <FormField
+                                control={form.control}
+                                name="transferToAccountId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>入金账户</FormLabel>
+                                        <FormControl>
+                                            <SearchableSelect
+                                                options={accountOptions}
+                                                value={field.value || ""}
+                                                onValueChange={field.onChange}
+                                                placeholder="选择目标账户"
+                                                searchPlaceholder="搜索账户..."
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
+                        {activeTab !== "transfer" && (
+                            <FormField
+                                control={form.control}
+                                name="categoryId"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>分类</FormLabel>
+                                        <FormControl>
+                                            <SearchableSelect
+                                                options={categoryOptions}
+                                                value={field.value || ""}
+                                                onValueChange={field.onChange}
+                                                placeholder="选择分类"
+                                                searchPlaceholder="搜索分类..."
+                                                onCreateNew={(val) => {
+                                                    setNewCategoryName(val)
+                                                    setCreateCategoryOpen(true)
+                                                }}
+                                                createNewText="+ 新建分类"
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
 
                         <FormField
                             control={form.control}

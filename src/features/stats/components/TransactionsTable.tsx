@@ -194,7 +194,8 @@ export function TransactionsTable() {
                         <TableRow>
                             <TableHead>时间</TableHead>
                             <TableHead>分类</TableHead>
-                            <TableHead>账户</TableHead>
+                            <TableHead>出金账户</TableHead>
+                            <TableHead>入金账户</TableHead>
                             <TableHead>收支</TableHead>
                             <TableHead className="text-right">金额</TableHead>
                             <TableHead>备注</TableHead>
@@ -203,35 +204,57 @@ export function TransactionsTable() {
                     <TableBody>
                         {currentData.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={6} className="text-center py-6 text-muted-foreground">
+                                <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
                                     暂无符合条件的交易明细
                                 </TableCell>
                             </TableRow>
                         ) : (
                             currentData.map(tx => {
-                                const isExpense = tx.type === "expense"
+                                const outAccount = (tx.type === "expense" || tx.type === "transfer")
+                                    ? accountMap.get(tx.accountId as string)?.name || "未知"
+                                    : "-"
+                                const inAccount = tx.type === "income"
+                                    ? accountMap.get(tx.accountId as string)?.name || "未知"
+                                    : (tx.type === "transfer" ? accountMap.get(tx.transferToAccountId as string)?.name || "未知" : "-")
+
+                                const typeColor = tx.type === "expense"
+                                    ? "text-primary"
+                                    : tx.type === "income"
+                                        ? "text-green-600"
+                                        : "text-slate-600 dark:text-slate-400"
+
+                                const typeText = tx.type === "expense" ? "支出" : tx.type === "income" ? "收入" : "转账"
+                                const amountPrefix = tx.type === "expense" ? "-" : tx.type === "income" ? "+" : ""
+
                                 return (
                                     <TableRow key={tx.id}>
                                         <TableCell className="text-muted-foreground text-sm">
-                                            {format(tx.date, "yyyy-MM-dd HH:mm")}
+                                            {format(tx.date, "MM-dd HH:mm")}
                                         </TableCell>
                                         <TableCell>
                                             <Badge variant="secondary" className="font-normal">
-                                                {categoryMap.get(tx.categoryId as string)?.name || "其他"}
+                                                {tx.type === "transfer" ? "余额周转" : (categoryMap.get(tx.categoryId as string)?.name || "其他")}
                                             </Badge>
                                         </TableCell>
                                         <TableCell>
-                                            <span className="text-sm border border-input px-2 py-0.5 rounded-md">
-                                                {accountMap.get(tx.accountId as string)?.name || "未知账户"}
+                                            <span className="text-sm border border-input px-2 py-0.5 rounded-md text-muted-foreground">
+                                                {outAccount}
                                             </span>
                                         </TableCell>
                                         <TableCell>
-                                            <span className={isExpense ? "text-primary" : "text-green-600"}>
-                                                {isExpense ? "支出" : "收入"}
+                                            <span className="text-sm border border-input px-2 py-0.5 rounded-md text-muted-foreground">
+                                                {inAccount}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className={typeColor}>
+                                                {typeText}
                                             </span>
                                         </TableCell>
                                         <TableCell className="text-right font-medium">
-                                            {isExpense ? "-" : "+"}{Number(tx.amount).toFixed(2)}
+                                            <span className={typeColor}>
+                                                {amountPrefix}{Number(tx.amount).toFixed(2)}
+                                            </span>
                                         </TableCell>
                                         <TableCell className="max-w-[150px] truncate text-muted-foreground text-sm" title={tx.note}>
                                             {tx.note || "-"}

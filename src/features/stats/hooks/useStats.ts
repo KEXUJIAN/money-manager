@@ -58,6 +58,10 @@ export function useStats(dateRange: DateRange): StatsData | undefined {
         const incomeCategoryMap = new Map<string, number>()
 
         for (const tx of transactions) {
+            // 在整体统计与报表中，强行屏蔽所有本金转移类的转账记录，绝不计为收支
+            if (tx.type === "transfer") {
+                continue;
+            }
             if (tx.type === "income") {
                 totalIncome = plus(totalIncome, tx.amount)
                 if (tx.categoryId) {

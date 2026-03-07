@@ -12,11 +12,17 @@ export function TransactionList() {
 
         return Promise.all(txs.map(async (tx) => {
             const account = await db.accounts.get(tx.accountId);
-            const category = tx.categoryId ? await db.categories.get(tx.categoryId) : null;
+            const category = tx.type !== 'transfer' && tx.categoryId ? await db.categories.get(tx.categoryId) : null;
+            let targetAccountName = undefined;
+            if (tx.type === 'transfer' && tx.transferToAccountId) {
+                const toAccount = await db.accounts.get(tx.transferToAccountId);
+                targetAccountName = toAccount?.name;
+            }
 
             return {
                 ...tx,
                 accountName: account?.name || '未知账户',
+                targetAccountName,
                 categoryName: category?.name,
             };
         }));
@@ -46,24 +52,32 @@ export function TransactionList() {
                     <div className="flex items-center gap-3">
                         <div className={`h-9 w-9 rounded-xl flex items-center justify-center text-sm font-bold ${tx.type === 'income'
                             ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
-                            : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                            : tx.type === 'transfer'
+                                ? 'bg-slate-100 text-slate-600 dark:bg-slate-800/50 dark:text-slate-400'
+                                : 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
                             }`}>
-                            <span>{tx.categoryName ? tx.categoryName[0] : '?'}</span>
+                            <span>{tx.type === 'transfer' ? '流' : (tx.categoryName ? tx.categoryName[0] : '?')}</span>
                         </div>
                         <div>
                             <p className="text-sm font-medium leading-none">
-                                {tx.categoryName || tx.note || '未分类'}
+                                {tx.type === 'transfer' ? '余额运转' : (tx.categoryName || tx.note || '未分类')}
                             </p>
                             <p className="text-xs text-muted-foreground mt-1">
-                                {format(tx.date, 'MM/dd')} · {tx.accountName}
+                                {format(tx.date, 'MM/dd')} · {tx.type === 'transfer'
+                                    ? <>{tx.accountName} <span className="mx-0.5 opacity-50">→</span> {tx.targetAccountName}</>
+                                    : tx.type === 'expense'
+                                        ? `出金: ${tx.accountName}`
+                                        : `入金: ${tx.accountName}`}
                             </p>
                         </div>
                     </div>
                     <span className={`text-sm font-semibold tabular-nums ${tx.type === 'income'
                         ? 'text-emerald-600 dark:text-emerald-400'
-                        : 'text-red-600 dark:text-red-400'
+                        : tx.type === 'transfer'
+                            ? 'text-slate-600 dark:text-slate-400'
+                            : 'text-red-600 dark:text-red-400'
                         }`}>
-                        {tx.type === 'expense' ? '-' : '+'}
+                        {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''}
                         {formatter.format(tx.amount)}
                     </span>
                 </div>

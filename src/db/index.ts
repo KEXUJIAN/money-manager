@@ -5,6 +5,7 @@ export interface Account {
   name: string;
   type: 'cash' | 'bank' | 'alipay' | 'wechat' | 'credit_card' | 'other';
   balance: number;
+  balanceOffset?: number; // 历史平账偏置值
   currency: string;
   icon?: string;
   color?: string;
@@ -27,8 +28,9 @@ export interface Category {
 export interface Transaction {
   id: string; // UUID
   amount: number; // Always positive
-  type: 'income' | 'expense';
-  accountId: string;
+  type: 'income' | 'expense' | 'transfer';
+  accountId: string; // 转出方（或默认归属账号）
+  transferToAccountId?: string; // 转入方（仅转账型存在）
   categoryId?: string;
   date: number; // Timestamp
   note?: string;
@@ -47,7 +49,7 @@ const db = new Dexie('MoneyManagerDB') as Dexie & {
 db.version(1).stores({
   accounts: 'id, type, name',
   categories: 'id, type, name, parentId',
-  transactions: 'id, date, type, accountId, categoryId, [date+type]' // Composite index for reporting
+  transactions: 'id, date, type, accountId, transferToAccountId, categoryId, [date+type]' // Composite index for reporting
 });
 
 export { db };

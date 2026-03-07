@@ -85,14 +85,19 @@ export function AccountFormSheet({ open, onOpenChange, account }: AccountFormShe
     async function onSubmit(values: FormValues) {
         try {
             if (account) {
+                const diff = (values.balance || 0) - (account.balance || 0);
+                const newOffset = (account.balanceOffset || 0) + diff;
+
                 await db.accounts.update(account.id, {
                     ...values,
+                    balanceOffset: newOffset,
                     updatedAt: Date.now(),
                 })
             } else {
                 await db.accounts.add({
                     id: generateId(),
                     ...values,
+                    balanceOffset: 0,
                     createdAt: Date.now(),
                     updatedAt: Date.now(),
                 })

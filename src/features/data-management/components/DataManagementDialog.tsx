@@ -81,10 +81,13 @@ export function DataManagementDialog() {
             // 按时间升序排列（最早 → 最新）
             transactions.sort((a, b) => a.date - b.date)
             const categories = await db.categories.toArray()
+            const accounts = await db.accounts.toArray()
 
             const lines = [LEGACY_TXT_HEADER]
             const categoryMap = new Map()
             categories.forEach(c => categoryMap.set(c.id, c.name))
+            const accountMap = new Map()
+            accounts.forEach(a => accountMap.set(a.id, a.name))
 
             // 格式化日期 YYYY-MM-DD HH:mm
             const fmtDate = (ts: number) => {
@@ -99,13 +102,22 @@ export function DataManagementDialog() {
 
             transactions.forEach(tx => {
                 const dateStr = fmtDate(tx.date)
-                const typeStr = tx.type === 'expense' ? '支出' : '收入'
-                const catName = categoryMap.get(tx.categoryId) || "其他"
-                // 支出为负数，收入为正数
+                const typeStr = tx.type === 'expense' ? '支出' : tx.type === 'income' ? '收入' : '转账'
+                const catName = tx.type === 'transfer' ? '' : (categoryMap.get(tx.categoryId) || "其他")
+                // 支出为负数，收入和转账为正数
                 const amount = tx.type === 'expense' ? -tx.amount : tx.amount
-                const note = tx.note || ""
+                const fromAccountName = accountMap.get(tx.accountId) || "未知账户"
+                const toAccountName = tx.type === 'transfer' && tx.transferToAccountId ? (accountMap.get(tx.transferToAccountId) || "未知账户") : ""
 
-                lines.push([dateStr, typeStr, catName, amount.toFixed(2), note].join(LEGACY_TXT_DELIMITER))
+                // 为了兼容经典的 5 列 TXT 格式，将账号信息打包写入备注
+                let finalNote = tx.note || ""
+                if (tx.type === 'transfer') {
+                    finalNote = `[出金:${fromAccountName} 入金:${toAccountName}] ${finalNote}`.trim()
+                } else {
+                    finalNote = `[账户:${fromAccountName}] ${finalNote}`.trim()
+                }
+
+                lines.push([dateStr, typeStr, catName, amount.toFixed(2), finalNote].join(LEGACY_TXT_DELIMITER))
             })
 
             const content = lines.join("\n")
@@ -152,28 +164,45 @@ export function DataManagementDialog() {
             // 构建带有特定单元格类型的表单数据结构避免科学计数法
             const data = transactions.map(tx => {
                 const amountSign = tx.type === 'expense' ? -1 : 1
+
+                // 计算准确的账户流向归属
+                let outAccount = ""
+                let inAccount = ""
+                const baseAccountName = accountMap.get(tx.accountId) || "未知账户"
+
+                if (tx.type === 'expense') {
+                    outAccount = baseAccountName
+                } else if (tx.type === 'income') {
+                    inAccount = baseAccountName
+                } else if (tx.type === 'transfer') {
+                    outAccount = baseAccountName
+                    inAccount = tx.transferToAccountId ? (accountMap.get(tx.transferToAccountId) || "未知账户") : ""
+                }
+
                 return {
                     "记账日期": { t: 's', v: fmtDate(tx.date) },
-                    "收支类型": { t: 's', v: tx.type === 'expense' ? '支出' : '收入' },
-                    "分类": { t: 's', v: categoryMap.get(tx.categoryId) || "其他" },
+                    "收支类型": { t: 's', v: tx.type === 'expense' ? '支出' : tx.type === 'income' ? '收入' : '转账' },
+                    "分类": { t: 's', v: tx.type === 'transfer' ? '' : (categoryMap.get(tx.categoryId) || "其他") },
                     "金额": { t: 'n', v: Number((tx.amount * amountSign).toFixed(2)) },
-                    "账户": { t: 's', v: accountMap.get(tx.accountId) || "未知账户" },
+                    "出金账户": { t: 's', v: outAccount },
+                    "入金账户": { t: 's', v: inAccount },
                     "备注": { t: 's', v: tx.note || "" },
                 }
             })
 
             const worksheet = XLSX.utils.json_to_sheet(data, {
-                header: ["记账日期", "收支类型", "分类", "金额", "账户", "备注"],
+                header: ["记账日期", "收支类型", "分类", "金额", "出金账户", "入金账户", "备注"],
                 skipHeader: false
             })
 
             // 设置列宽
             worksheet['!cols'] = [
                 { wch: 18 }, // 日期
-                { wch: 10 }, // 类型
+                { wch: 8 },  // 类型
                 { wch: 15 }, // 分类
                 { wch: 12 }, // 金额
-                { wch: 15 }, // 账户
+                { wch: 15 }, // 出金账户
+                { wch: 15 }, // 入金账户
                 { wch: 30 }  // 备注
             ]
 
@@ -370,17 +399,68 @@ export function DataManagementDialog() {
         try {
             setIsProcessing(true)
             await db.transaction("rw", db.transactions, db.accounts, async () => {
-                const txs = await db.transactions.where("accountId").equals(selectedAccountToClear).primaryKeys()
-                await db.transactions.bulkDelete(txs)
-                const account = await db.accounts.get(selectedAccountToClear)
-                if (account) {
+                // 1. 查找所有该账户参与的流水（作为出金或入金方）
+                const outTxs = await db.transactions.where("accountId").equals(selectedAccountToClear).toArray()
+                const inTxs = await db.transactions.where("transferToAccountId").equals(selectedAccountToClear).toArray()
+
+                // 去重合并所有涉及的流水 (防止同一笔流水被计算两次)
+                const txMap = new Map()
+                outTxs.forEach(tx => txMap.set(tx.id, tx))
+                inTxs.forEach(tx => txMap.set(tx.id, tx))
+                const allRelatedTxs = Array.from(txMap.values())
+
+                // 2. 统计其他受影响关联账户的余额回退量
+                const accountBalanceDiffs: Record<string, number> = {}
+
+                allRelatedTxs.forEach(tx => {
+                    if (tx.type === 'income') {
+                        // 收入：当时加了钱，现在删掉这笔流水等于要扣掉
+                        if (!accountBalanceDiffs[tx.accountId]) accountBalanceDiffs[tx.accountId] = 0
+                        accountBalanceDiffs[tx.accountId] -= tx.amount
+                    } else if (tx.type === 'expense') {
+                        // 支出：当时扣了钱，现在删掉等于要补回
+                        if (!accountBalanceDiffs[tx.accountId]) accountBalanceDiffs[tx.accountId] = 0
+                        accountBalanceDiffs[tx.accountId] += tx.amount
+                    } else if (tx.type === 'transfer') {
+                        // 转账：当时来源扣钱，目标加钱。现在逆向还原
+                        if (!accountBalanceDiffs[tx.accountId]) accountBalanceDiffs[tx.accountId] = 0
+                        accountBalanceDiffs[tx.accountId] += tx.amount
+
+                        if (tx.transferToAccountId) {
+                            if (!accountBalanceDiffs[tx.transferToAccountId]) accountBalanceDiffs[tx.transferToAccountId] = 0
+                            accountBalanceDiffs[tx.transferToAccountId] -= tx.amount
+                        }
+                    }
+                })
+
+                // 3. 批量回退更新非主清空账户的余额
+                const allAccountIdsToUpdate = Object.keys(accountBalanceDiffs)
+                for (const actId of allAccountIdsToUpdate) {
+                    // 跳过这个正在被“全面清空重置”的主角账户
+                    if (actId === selectedAccountToClear) continue
+
+                    const acc = await db.accounts.get(actId)
+                    if (acc) {
+                        // 回滚补差值 (由于 JS 浮点问题，最好截取固定精度)
+                        const newBalance = Number((acc.balance + accountBalanceDiffs[actId]).toFixed(2))
+                        await db.accounts.update(actId, { balance: newBalance })
+                    }
+                }
+
+                // 4. 清空流水的真实物理数据
+                const txIdsToDelete = Array.from(txMap.keys())
+                await db.transactions.bulkDelete(txIdsToDelete)
+
+                // 5. 对被点击清空的主账户实行绝对清算，强行重置为 0
+                const targetAccount = await db.accounts.get(selectedAccountToClear)
+                if (targetAccount) {
                     await db.accounts.update(selectedAccountToClear, { balance: 0 })
                 }
             })
-            toast.success("该账户的交易记录已清空")
+            toast.success("该账户的双边交易网络及关联余额已全数拆解并清退完毕")
             setSelectedAccountToClear("")
         } catch (error) {
-            console.error("清空特定账户失败:", error)
+            console.error("清空特定账户级联失败:", error)
             toast.error("清空失败，请重试")
         } finally {
             setIsProcessing(false)
