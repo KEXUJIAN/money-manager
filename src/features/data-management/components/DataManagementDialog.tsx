@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo } from "react"
 import { db } from "@/db"
+import { seedDatabase } from "@/db/seed"
 import { Download, Upload, Trash2, FileText, Database, AlertTriangle } from "lucide-react"
 import { LEGACY_TXT_DELIMITER, LEGACY_TXT_HEADER } from "@/lib/constants"
 import { toast } from "sonner"
@@ -19,6 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ConfirmationModal } from "@/components/ui/confirmation-modal"
 import { SearchableSelect } from "@/components/ui/searchable-select"
 import { parseLegacyTxt, importLegacyData, checkTxtDuplicates } from "@/features/import/importLegacy"
+import { importExcelData, type ParsedExcelRow } from "@/features/import/importExcel"
 import { LoadingMask } from "@/components/ui/loading-mask"
 
 export function DataManagementDialog() {
@@ -32,6 +34,11 @@ export function DataManagementDialog() {
     const [txtImportConfirmOpen, setTxtImportConfirmOpen] = useState(false)
     const [txtDuplicateConfirmOpen, setTxtDuplicateConfirmOpen] = useState(false)
     const [txtDuplicateCount, setTxtDuplicateCount] = useState(0)
+
+    // Excel Import States
+    const [excelDuplicateConfirmOpen, setExcelDuplicateConfirmOpen] = useState(false)
+    const pendingExcelParsed = useRef<ParsedExcelRow[] | null>(null)
+
     const [selectedAccountId, setSelectedAccountId] = useState("")
     const pendingJsonData = useRef<ReturnType<typeof JSON.parse> | null>(null) // any 理由：JSON.parse 返回值即为 any
     const pendingTxtParsed = useRef<Awaited<ReturnType<typeof parseLegacyTxt>> | null>(null)
@@ -187,15 +194,19 @@ export function DataManagementDialog() {
                     "出金账户": { t: 's', v: outAccount },
                     "入金账户": { t: 's', v: inAccount },
                     "备注": { t: 's', v: tx.note || "" },
+                    "[系统映射_流水ID]": { t: 's', v: tx.id },
+                    "[系统映射_分类ID]": { t: 's', v: tx.categoryId },
+                    "[系统映射_出金账户ID]": { t: 's', v: tx.accountId },
+                    "[系统映射_入金账户ID]": { t: 's', v: tx.transferToAccountId || "" },
                 }
             })
 
             const worksheet = XLSX.utils.json_to_sheet(data, {
-                header: ["记账日期", "收支类型", "分类", "金额", "出金账户", "入金账户", "备注"],
+                header: ["记账日期", "收支类型", "分类", "金额", "出金账户", "入金账户", "备注", "[系统映射_流水ID]", "[系统映射_分类ID]", "[系统映射_出金账户ID]", "[系统映射_入金账户ID]"],
                 skipHeader: false
             })
 
-            // 设置列宽
+            // 设置列宽 (隐藏最后4列系统映射ID)
             worksheet['!cols'] = [
                 { wch: 18 }, // 日期
                 { wch: 8 },  // 类型
@@ -203,7 +214,11 @@ export function DataManagementDialog() {
                 { wch: 12 }, // 金额
                 { wch: 15 }, // 出金账户
                 { wch: 15 }, // 入金账户
-                { wch: 30 }  // 备注
+                { wch: 30 }, // 备注
+                { hidden: true }, // [系统映射_流水ID]
+                { hidden: true }, // [系统映射_分类ID]
+                { hidden: true }, // [系统映射_出金账户ID]
+                { hidden: true }, // [系统映射_入金账户ID]
             ]
 
             const workbook = XLSX.utils.book_new()
@@ -270,6 +285,63 @@ export function DataManagementDialog() {
         } finally {
             setIsProcessing(false)
             pendingJsonData.current = null
+        }
+    }
+
+    // ---- 导入报表 (XLSX) ----
+    async function importXlsx() {
+        const input = document.createElement("input")
+        input.type = "file"
+        input.accept = ".xlsx, .xls"
+        input.onchange = async (e) => {
+            const file = (e.target as HTMLInputElement).files?.[0]
+            if (!file) return
+
+            try {
+                setImporting(true)
+                const XLSX = await import("xlsx")
+                const data = await file.arrayBuffer()
+                const workbook = XLSX.read(data, { type: 'array' })
+
+                const firstSheetName = workbook.SheetNames[0]
+                const worksheet = workbook.Sheets[firstSheetName]
+
+                // 解析时确认为 ParsedExcelRow 的结构
+                const parsed = XLSX.utils.sheet_to_json<ParsedExcelRow>(worksheet)
+
+                if (parsed.length === 0) {
+                    toast.error("未找到有效的交易记录，请检查文件内容")
+                    return
+                }
+
+                pendingExcelParsed.current = parsed
+                // 简化流程，直接询问是否跳过重复项（复用之前去重的提醒文案范式）
+                setExcelDuplicateConfirmOpen(true)
+            } catch (error) {
+                console.error("Excel 导入失败:", error)
+                toast.error("导入失败：" + (error instanceof Error ? error.message : "未知错误"))
+            } finally {
+                setImporting(false)
+            }
+        }
+        input.click()
+    }
+
+    async function executeExcelImport(skipDuplicates: boolean) {
+        const parsed = pendingExcelParsed.current
+        if (!parsed) return
+        try {
+            setImporting(true)
+            const result = await importExcelData(parsed, skipDuplicates)
+            toast.success(`导入完成！✅ 导入/更新 ${result.imported} 条交易 (有 ID 全量覆盖)。📂 补充 ${result.categoriesCreated} 个分类，💳 补充 ${result.accountsCreated} 个账户。`)
+            setOpen(false)
+        } catch (error) {
+            console.error("Excel 导入执行失败:", error)
+            toast.error("导入失败：" + (error instanceof Error ? error.message : "未知错误"))
+        } finally {
+            setImporting(false)
+            setExcelDuplicateConfirmOpen(false)
+            pendingExcelParsed.current = null
         }
     }
 
@@ -378,12 +450,14 @@ export function DataManagementDialog() {
             setIsProcessing(true)
             await db.transaction("rw", db.accounts, db.categories, db.transactions, async () => {
                 await db.accounts.clear()
-                // 保留内置分类 (isBuiltin: true)
-                const customCategories = await db.categories.filter(c => !c.isBuiltin).primaryKeys()
-                await db.categories.bulkDelete(customCategories)
+                // 不再特权保留内置分类，彻底杀掉所有分类数据以防老版本数据幽灵作怪
+                await db.categories.clear()
                 await db.transactions.clear()
+
+                // 光速利用强健的初始化逻辑重新注入新鲜的、合法主键的默认数据
+                await seedDatabase()
             })
-            toast.success("数据已清空，系统内置分类已保留")
+            toast.success("数据已重置清空，系统框架已重新初始化")
             setOpen(false)
         } catch (error) {
             console.error("清空失败:", error)
@@ -534,6 +608,15 @@ export function DataManagementDialog() {
                                     <span className="text-xs text-muted-foreground">从 JSON 文件恢复数据，将覆盖当前数据。</span>
                                 </div>
                             </Button>
+                            <Button variant="outline" className="w-full justify-start h-auto py-3" onClick={importXlsx} disabled={importing}>
+                                <div className="flex flex-col items-start gap-1">
+                                    <div className="flex items-center">
+                                        <FileText className="mr-2 h-4 w-4" />
+                                        <span>导入报表 (XLSX)</span>
+                                    </div>
+                                    <span className="text-xs text-muted-foreground">导入自带 ID 特征的格式化 Excel 表格，进行无损全量关系映射还原。</span>
+                                </div>
+                            </Button>
                             <Button variant="outline" className="w-full justify-start h-auto py-3" onClick={importTxt} disabled={importing}>
                                 <div className="flex flex-col items-start gap-1">
                                     <div className="flex items-center">
@@ -606,8 +689,8 @@ export function DataManagementDialog() {
             <ConfirmationModal
                 open={clearConfirmOpen}
                 onOpenChange={setClearConfirmOpen}
-                title="确定要清空所有数据吗？"
-                description="此操作将清空所有账户和交易，但内置分类会保留。不可撤销！确定继续？"
+                title="确定要重置清空所有数据吗？"
+                description="此操作将清空所有账户和交易连同自建分类，不可撤销！确定继续？"
                 confirmText="清空所有数据"
                 variant="destructive"
                 onConfirm={clearAllData}
@@ -656,6 +739,17 @@ export function DataManagementDialog() {
                 cancelText="依然全部导入"
                 onConfirm={() => executeTxtImport(true)}      // confirm 表示选用推荐安全操作
                 onCancel={() => executeTxtImport(false)}      // cancel 这里当作另一个 action
+            />
+
+            <ConfirmationModal
+                open={excelDuplicateConfirmOpen}
+                onOpenChange={setExcelDuplicateConfirmOpen}
+                title={`发现 ${pendingExcelParsed.current?.length ?? 0} 条代办导入的表格数据`}
+                description={`已启用系统底层 ID 精密对齐覆盖。如果您重新修改了表单的金额和内容，请直接点击“重新覆盖”。\n\n您是否希望直接覆盖现有相同源 ID 的数据或补充缺失数据？（对于手工新增、未带 ID 的行列，系统将防呆查重）`}
+                confirmText="防呆查重、补充导入并覆盖旧记录"
+                cancelText="强行全部无脑插入（不仅覆盖还要复制）"
+                onConfirm={() => executeExcelImport(true)}
+                onCancel={() => executeExcelImport(false)}
             />
 
             <LoadingMask open={isProcessing || importing} text="数据处理中，请稍候..." />

@@ -36,8 +36,8 @@ export const seedDatabase = async () => {
     });
 
     // 支出分类（内置，不可删除）
-    const expenseCats = expenseCategories.map((name, i) => ({
-        id: generateId(now, i),
+    const expenseCats = expenseCategories.map((name) => ({
+        id: `builtin_expense_${name}`,
         name,
         type: "expense" as const,
         isBuiltin: true,
@@ -46,8 +46,8 @@ export const seedDatabase = async () => {
     }));
 
     // 收入分类（内置，不可删除）
-    const incomeCats = incomeCategories.map((name, i) => ({
-        id: generateId(now, expenseCats.length + i),
+    const incomeCats = incomeCategories.map((name) => ({
+        id: `builtin_income_${name}`,
         name,
         type: "income" as const,
         isBuiltin: true,
@@ -55,5 +55,16 @@ export const seedDatabase = async () => {
         updatedAt: now,
     }));
 
-    await db.categories.bulkAdd([...expenseCats, ...incomeCats]);
+    // 1. 【自愈机制】扫除数据库里所有旧版（由于以前 Bug 遗留的）带随机 ID 的残余伪内置分类
+    const legacyZombies = await db.categories
+        .filter(c => !!c.isBuiltin && !c.id.startsWith("builtin_"))
+        .primaryKeys();
+
+    if (legacyZombies.length > 0) {
+        console.warn("🧹 发现遗留的随机 ID 内置分类，正在进行自动清理...");
+        await db.categories.bulkDelete(legacyZombies);
+    }
+
+    // 2. 【防战损写入】使用 bulkPut（存在即覆盖更新记录），永远消灭重置冲突导致的 ConstraintError!
+    await db.categories.bulkPut([...expenseCats, ...incomeCats]);
 };
