@@ -5,6 +5,8 @@ import Stats from "@/routes/stats"
 import Settings from "@/routes/settings"
 import { Toaster } from "@/components/ui/sonner"
 
+import DevDbPage from "@/routes/dev-db"
+
 function App() {
   return (
     <>
@@ -15,6 +17,7 @@ function App() {
             <Route path="stats" element={<Stats />} />
             <Route path="settings" element={<Settings />} />
           </Route>
+          <Route path="/dev-db" element={<DevDbPage />} />
         </Routes>
       </BrowserRouter>
       <Toaster />

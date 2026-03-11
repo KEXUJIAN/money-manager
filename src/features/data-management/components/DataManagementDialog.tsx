@@ -196,8 +196,8 @@ export function DataManagementDialog() {
                     "备注": { t: 's', v: tx.note || "" },
                     "[系统映射_流水ID]": { t: 's', v: tx.id },
                     "[系统映射_分类ID]": { t: 's', v: tx.categoryId },
-                    "[系统映射_出金账户ID]": { t: 's', v: tx.accountId },
-                    "[系统映射_入金账户ID]": { t: 's', v: tx.transferToAccountId || "" },
+                    "[系统映射_出金账户ID]": { t: 's', v: tx.type === 'income' ? "" : tx.accountId },
+                    "[系统映射_入金账户ID]": { t: 's', v: tx.type === 'expense' ? "" : (tx.type === 'income' ? tx.accountId : (tx.transferToAccountId || "")) },
                 }
             })
 
