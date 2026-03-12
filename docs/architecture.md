@@ -8,6 +8,7 @@
 | v0.4.1 | 2026-02 | 修复统计多重其他分类问题、重构配色算法、新增 xlsx 原生导出  |
 | v0.5   | 2026-02 | 修复账号清空Bug、实现交易表格独立时间筛选器、完善里程碑记录 |
 | v0.6   | 2026-03 | 原生双边转账、balanceOffset 平账、全景出入金导出与视图对其  |
+| v0.6.1 | 2026-03 | DevDB中文化、流水编辑/删除功能、余额原子平账事务模型      |
 
 ## 设计目标
 
@@ -40,7 +41,7 @@ src/
 │   ├── data-management/ # 数据管理 — 导入/导出/清空 (JSON + TXT)
 │   ├── import/         # 历史数据导入 — TXT 解析器 (SOH 分隔)
 │   ├── stats/          # 统计 — MonthlyOverview, DailyChart, CategoryBreakdown
-│   └── transactions/   # 交易 — AddTransactionSheet, TransactionList
+│   └── transactions/   # 交易 — AddTransactionSheet(新增/编辑), TransactionList, deleteTransaction
 ├── layouts/            # AppLayout — 响应式侧边栏(桌面) / 底栏(移动)
 ├── lib/                # 工具函数 (cn) + 共享常量 (constants.ts)
 ├── routes/             # 页面路由 — Home, Stats, Settings
@@ -56,6 +57,7 @@ Account
 ├── name: string
 ├── type: 'cash' | 'bank' | 'alipay' | 'wechat' | 'credit_card' | 'other'
 ├── balance: number
+├── balanceOffset?: number    ← 数学偏置平账字段
 └── currency: string
 
 Category
@@ -68,8 +70,9 @@ Category
 Transaction
 ├── id: string (generateId)
 ├── amount: number         ← 始终为正数
-├── type: 'income' | 'expense'
-├── accountId: string
+├── type: 'income' | 'expense' | 'transfer'
+├── accountId: string      ← 出账/所属账户
+├── transferToAccountId?: string  ← 转账目标账户
 ├── categoryId?: string
 ├── date: number           ← 时间戳
 └── note?: string

@@ -87,8 +87,24 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog"
 
-export function AddTransactionSheet() {
-    const [open, setOpen] = useState(false)
+export function AddTransactionSheet({ 
+    editTransactionId,
+    open: controlledOpen,
+    onOpenChange: setControlledOpen
+}: { 
+    editTransactionId?: string;
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
+} = {}) {
+    const isEditing = !!editTransactionId
+    // 如果外部传入 controlledOpen 则使用外部状态，否则使用内部本身（主要用于那个右下角加号按钮的自由触发）
+    const [internalOpen, setInternalOpen] = useState(false)
+    const open = controlledOpen !== undefined ? controlledOpen : internalOpen
+    const setOpen = (val: boolean) => {
+        setInternalOpen(val)
+        if (setControlledOpen) setControlledOpen(val)
+    }
+
     const [activeTab, setActiveTab] = useState("expense")
 
     // Create Category Modal States
@@ -127,12 +143,27 @@ export function AddTransactionSheet() {
         },
     })
 
-    // 打开侧边栏时，重置时间为当前时间
+    // 打开时如果是编辑模式，加载数据
     useEffect(() => {
-        if (open) {
+        if (open && isEditing && editTransactionId) {
+            db.transactions.get(editTransactionId).then(txn => {
+                if (txn) {
+                    setActiveTab(txn.type)
+                    form.reset({
+                        amount: txn.amount,
+                        type: txn.type,
+                        accountId: txn.accountId,
+                        transferToAccountId: txn.transferToAccountId || "",
+                        categoryId: txn.categoryId || "",
+                        date: new Date(txn.date),
+                        note: txn.note || "",
+                    })
+                }
+            })
+        } else if (open && !isEditing) {
             form.setValue("date", getNow())
         }
-    }, [open, form])
+    }, [open, isEditing, editTransactionId, form])
 
     // 切换 Tab 时同步 type
     useEffect(() => {
@@ -180,8 +211,6 @@ export function AddTransactionSheet() {
 
     async function onSubmit(values: FormValues) {
         try {
-            const transactionId = generateId(values.date)
-            // Save transaction
             // 强制秒归零
             const dateObj = new Date(values.date)
             dateObj.setSeconds(0, 0)
@@ -195,7 +224,35 @@ export function AddTransactionSheet() {
 
             await db.transaction('rw', db.transactions, db.accounts, async () => {
                 const finalAmount = formatAmount(values.amount)
-                await db.transactions.add({
+                
+                // 【核心平账】：如果是编辑，先撤销原本的影响
+                if (isEditing && editTransactionId) {
+                    const oldTxn = await db.transactions.get(editTransactionId)
+                    if (oldTxn) {
+                        // 撤销出账账户（原来扣除的加回来，原来加上的减掉）
+                        const oldAccount = await db.accounts.get(oldTxn.accountId)
+                        if (oldAccount) {
+                            let revertBalance = oldAccount.balance
+                            if (oldTxn.type === 'expense' || oldTxn.type === 'transfer') {
+                                revertBalance = plus(oldAccount.balance, oldTxn.amount) // 原来扣的加回来
+                            } else if (oldTxn.type === 'income') {
+                                revertBalance = minus(oldAccount.balance, oldTxn.amount) // 原来加的扣掉
+                            }
+                            await db.accounts.update(oldTxn.accountId, { balance: revertBalance })
+                        }
+                        // 撤销入账账户（如果是转账）
+                        if (oldTxn.type === 'transfer' && oldTxn.transferToAccountId) {
+                            const oldToAccount = await db.accounts.get(oldTxn.transferToAccountId)
+                            if (oldToAccount) {
+                                await db.accounts.update(oldTxn.transferToAccountId, { balance: minus(oldToAccount.balance, oldTxn.amount) }) // 原来转入加上的扣掉
+                            }
+                        }
+                    }
+                }
+
+                const transactionId = (isEditing && editTransactionId) ? editTransactionId : generateId(values.date)
+                
+                const newRecord = {
                     id: transactionId,
                     amount: finalAmount,
                     type: values.type,
@@ -204,11 +261,19 @@ export function AddTransactionSheet() {
                     categoryId: values.type === 'transfer' ? undefined : values.categoryId,
                     date: dateObj.getTime(),
                     note,
-                    createdAt: Date.now(),
+                    createdAt: isEditing ? undefined : Date.now(), // update 也会用到
                     updatedAt: Date.now(),
-                })
+                }
+                
+                if (isEditing) {
+                    // 删除 createdAt 再合并更新避免覆盖掉最早的创建时间
+                    delete newRecord.createdAt;
+                    await db.transactions.update(transactionId, newRecord)
+                } else {
+                    await db.transactions.add(newRecord as any) // any 理由：这里 createdAt 是存在的
+                }
 
-                // 更新转出/所属账户余额
+                // 应用新的影响：更新转出/所属账户余额
                 const account = await db.accounts.get(values.accountId)
                 if (account) {
                     let newBalance = account.balance
@@ -220,7 +285,7 @@ export function AddTransactionSheet() {
                     await db.accounts.update(values.accountId, { balance: newBalance })
                 }
 
-                // 更新转入账户余额
+                // 应用新的影响：更新转入账户余额
                 if (values.type === 'transfer' && values.transferToAccountId) {
                     const toAccount = await db.accounts.get(values.transferToAccountId)
                     if (toAccount) {
@@ -230,15 +295,17 @@ export function AddTransactionSheet() {
             })
 
             setOpen(false)
-            form.reset({
-                amount: 0,
-                type: activeTab as "income" | "expense" | "transfer",
-                accountId: values.accountId, // 保留上次使用的账户
-                transferToAccountId: "",
-                categoryId: "",
-                date: getNow(),
-                note: "",
-            })
+            if (!isEditing) {
+                form.reset({
+                    amount: 0,
+                    type: activeTab as "income" | "expense" | "transfer",
+                    accountId: values.accountId, // 保留上次使用的账户
+                    transferToAccountId: "",
+                    categoryId: "",
+                    date: getNow(),
+                    note: "",
+                })
+            }
         } catch (error) {
             console.error("保存记录失败:", error)
         }
@@ -246,16 +313,18 @@ export function AddTransactionSheet() {
 
     return (
         <Sheet open={open} onOpenChange={setOpen}>
-            <SheetTrigger asChild>
-                <Button className="rounded-full h-12 w-12 shadow-lg fixed bottom-6 right-6 md:static md:h-9 md:w-auto md:shadow-none md:rounded-md">
-                    <Plus className="h-6 w-6 md:mr-2 md:h-4 md:w-4" />
-                    <span className="hidden md:inline">记一笔</span>
-                </Button>
-            </SheetTrigger>
+            {!isEditing && (
+                <SheetTrigger asChild>
+                    <Button className="rounded-full h-12 w-12 shadow-lg fixed bottom-6 right-6 md:static md:h-9 md:w-auto md:shadow-none md:rounded-md">
+                        <Plus className="h-6 w-6 md:mr-2 md:h-4 md:w-4" />
+                        <span className="hidden md:inline">记一笔</span>
+                    </Button>
+                </SheetTrigger>
+            )}
             <SheetContent className="overflow-y-auto w-full sm:max-w-md">
                 <SheetHeader>
-                    <SheetTitle>记一笔</SheetTitle>
-                    <SheetDescription>记录一笔新的收支</SheetDescription>
+                    <SheetTitle>{isEditing ? "编辑流水" : "记一笔"}</SheetTitle>
+                    <SheetDescription>{isEditing ? "修改历史收支记录并自动平推账户余额" : "记录一笔新的收支"}</SheetDescription>
                 </SheetHeader>
 
                 <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">

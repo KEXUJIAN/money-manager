@@ -21,10 +21,20 @@ import {
 } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react"
 
 import { StatsPeriodPicker } from "@/features/stats/components/StatsPeriodPicker"
 import { getDateRange, type TimeDimension } from "@/features/stats/utils"
+import { AddTransactionSheet } from "@/features/transactions/components/AddTransactionSheet"
+import { deleteTransaction } from "@/features/transactions/utils/deleteTransaction"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog"
 
 export function TransactionsTable() {
     const categories = useLiveQuery(() => db.categories.toArray()) || []
@@ -41,6 +51,26 @@ export function TransactionsTable() {
 
     const [currentPage, setCurrentPage] = useState(1)
     const pageSize = 20
+
+    const [editTxId, setEditTxId] = useState<string | undefined>()
+    const [isEditOpen, setIsEditOpen] = useState(false)
+    const [deleteTxId, setDeleteTxId] = useState<string | undefined>()
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
+
+    const handleDeleteConfirm = async () => {
+        if (!deleteTxId) return
+        try {
+            setIsDeleting(true)
+            await deleteTransaction(deleteTxId)
+        } catch (error) {
+            console.error("删除流水失败:", error)
+        } finally {
+            setIsDeleting(false)
+            setIsDeleteOpen(false)
+            setDeleteTxId(undefined)
+        }
+    }
 
     const categoryMap = useMemo(() => new Map(categories.map(c => [c.id, c])), [categories])
     const accountMap = useMemo(() => new Map(accounts.map(a => [a.id, a])), [accounts])
@@ -199,12 +229,13 @@ export function TransactionsTable() {
                             <TableHead>收支</TableHead>
                             <TableHead className="text-right">金额</TableHead>
                             <TableHead>备注</TableHead>
+                            <TableHead className="w-[60px]"></TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {currentData.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="text-center py-6 text-muted-foreground">
+                                <TableCell colSpan={8} className="text-center py-6 text-muted-foreground">
                                     暂无符合条件的交易明细
                                 </TableCell>
                             </TableRow>
@@ -259,6 +290,34 @@ export function TransactionsTable() {
                                         <TableCell className="max-w-[150px] truncate text-muted-foreground text-sm" title={tx.note}>
                                             {tx.note || "-"}
                                         </TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-1">
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                                                    onClick={() => {
+                                                        setEditTxId(tx.id)
+                                                        setIsEditOpen(true)
+                                                    }}
+                                                    title="编辑记录"
+                                                >
+                                                    <Pencil className="h-4 w-4" />
+                                                </Button>
+                                                <Button 
+                                                    variant="ghost" 
+                                                    size="icon" 
+                                                    className="h-8 w-8 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
+                                                    onClick={() => {
+                                                        setDeleteTxId(tx.id)
+                                                        setIsDeleteOpen(true)
+                                                    }}
+                                                    title="删除记录"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
                                     </TableRow>
                                 )
                             })
@@ -295,6 +354,30 @@ export function TransactionsTable() {
                     </div>
                 </div>
             )}
+
+            <AddTransactionSheet 
+                editTransactionId={editTxId} 
+                open={isEditOpen} 
+                onOpenChange={setIsEditOpen} 
+            />
+
+            {/* 删除确认对话框 */}
+            <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>确认删除</DialogTitle>
+                        <DialogDescription>
+                            删除后将自动撤销该笔流水对账户余额的影响，此操作不可撤销。确定要删除吗？
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsDeleteOpen(false)} disabled={isDeleting}>取消</Button>
+                        <Button variant="destructive" onClick={handleDeleteConfirm} disabled={isDeleting}>
+                            {isDeleting ? "删除中..." : "确认删除"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

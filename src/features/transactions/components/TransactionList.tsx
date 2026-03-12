@@ -1,8 +1,53 @@
 import { useLiveQuery } from "dexie-react-hooks"
 import { db } from "@/db"
 import { format } from "date-fns"
+import { useState } from "react"
+import { Pencil, Trash2 } from "lucide-react"
+import { AddTransactionSheet } from "./AddTransactionSheet"
+import { deleteTransaction } from "@/features/transactions/utils/deleteTransaction"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter,
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
 
 export function TransactionList() {
+    const [editTxId, setEditTxId] = useState<string | undefined>()
+    const [isEditOpen, setIsEditOpen] = useState(false)
+    const [deleteTxId, setDeleteTxId] = useState<string | undefined>()
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
+
+    const handleEdit = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation()
+        setEditTxId(id)
+        setIsEditOpen(true)
+    }
+
+    const handleDeleteClick = (id: string, e: React.MouseEvent) => {
+        e.stopPropagation()
+        setDeleteTxId(id)
+        setIsDeleteOpen(true)
+    }
+
+    const handleDeleteConfirm = async () => {
+        if (!deleteTxId) return
+        try {
+            setIsDeleting(true)
+            await deleteTransaction(deleteTxId)
+        } catch (error) {
+            console.error("删除流水失败:", error)
+        } finally {
+            setIsDeleting(false)
+            setIsDeleteOpen(false)
+            setDeleteTxId(undefined)
+        }
+    }
+
     const transactions = useLiveQuery(async () => {
         const txs = await db.transactions
             .orderBy('date')
@@ -71,17 +116,58 @@ export function TransactionList() {
                             </p>
                         </div>
                     </div>
-                    <span className={`text-sm font-semibold tabular-nums ${tx.type === 'income'
-                        ? 'text-emerald-600 dark:text-emerald-400'
-                        : tx.type === 'transfer'
-                            ? 'text-slate-600 dark:text-slate-400'
-                            : 'text-red-600 dark:text-red-400'
-                        }`}>
-                        {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''}
-                        {formatter.format(tx.amount)}
-                    </span>
+                    <div className="flex items-center gap-3">
+                        <span className={`text-sm font-semibold tabular-nums ${tx.type === 'income'
+                            ? 'text-emerald-600 dark:text-emerald-400'
+                            : tx.type === 'transfer'
+                                ? 'text-slate-600 dark:text-slate-400'
+                                : 'text-red-600 dark:text-red-400'
+                            }`}>
+                            {tx.type === 'expense' ? '-' : tx.type === 'income' ? '+' : ''}
+                            {formatter.format(tx.amount)}
+                        </span>
+                        <button 
+                            onClick={(e) => handleEdit(tx.id, e)}
+                            className="p-1.5 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                            title="编辑流水"
+                        >
+                            <Pencil className="w-4 h-4" />
+                        </button>
+                        <button 
+                            onClick={(e) => handleDeleteClick(tx.id, e)}
+                            className="p-1.5 rounded-md text-muted-foreground hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition-colors"
+                            title="删除流水"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                    </div>
                 </div>
             ))}
+
+            {/* 编辑流水弹窗 */}
+            <AddTransactionSheet 
+                editTransactionId={editTxId} 
+                open={isEditOpen} 
+                onOpenChange={setIsEditOpen} 
+            />
+
+            {/* 删除确认对话框 */}
+            <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>确认删除</DialogTitle>
+                        <DialogDescription>
+                            删除后将自动撤销该笔流水对账户余额的影响，此操作不可撤销。确定要删除吗？
+                        </DialogDescription>
+                    </DialogHeader>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsDeleteOpen(false)} disabled={isDeleting}>取消</Button>
+                        <Button variant="destructive" onClick={handleDeleteConfirm} disabled={isDeleting}>
+                            {isDeleting ? "删除中..." : "确认删除"}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
