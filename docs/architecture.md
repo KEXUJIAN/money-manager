@@ -9,6 +9,7 @@
 | v0.5   | 2026-02 | 修复账号清空Bug、实现交易表格独立时间筛选器、完善里程碑记录 |
 | v0.6   | 2026-03 | 原生双边转账、balanceOffset 平账、全景出入金导出与视图对其  |
 | v0.6.1 | 2026-03 | DevDB中文化、流水编辑/删除功能、余额原子平账事务模型      |
+| v0.6.2 | 2026-03 | Chunk 分包优化、路由懒加载、构建产物体积降低 70%           |
 
 ## 设计目标
 
@@ -84,6 +85,7 @@ Transaction
 2. **useLiveQuery 替代 Zustand** — 数据变更自动触发重渲染，无需手动状态管理
 3. **虚拟滚动预留** — `@tanstack/react-virtual` 已安装，长列表时可启用
 4. **Web Worker 预留** — 年度报表等重计算可移至独立线程
+5. **构建分包** — `manualChunks` 拆分 vendor 依赖（react/recharts/framer-motion/radix-ui），路由级 `React.lazy` 懒加载，主 chunk 367 kB，所有 chunk ≤500 kB
 
 ## 跨平台策略
 
