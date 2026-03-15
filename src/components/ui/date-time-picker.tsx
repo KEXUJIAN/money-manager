@@ -206,7 +206,12 @@ export function DateTimePicker({ value, onChange, className }: DateTimePickerPro
                     {format(value, "yyyy-MM-dd HH:mm")}
                 </Button>
             </PopoverTrigger>
-            <PopoverContent className="z-[200] w-auto p-0" align="start">
+            <PopoverContent 
+                className="z-[200] w-auto p-0 overflow-y-auto" 
+                align="start"
+                style={{ maxHeight: "calc(var(--radix-popover-content-available-height) - 16px)" }}
+                collisionPadding={16}
+            >
                 {/* 仿统计页面的日历区域 */}
                 <div className="p-4 w-[320px]">
                     {/* 年月导航 */}
