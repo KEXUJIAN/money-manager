@@ -52,7 +52,7 @@ export default function AppLayout() {
 
                 {/* 底部版本信息 */}
                 <div className="p-4 border-t">
-                    <p className="text-xs text-muted-foreground text-center">v0.1.1</p>
+                    <p className="text-xs text-muted-foreground text-center">v1.0</p>
                 </div>
             </aside>
 
