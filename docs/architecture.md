@@ -10,6 +10,7 @@
 | v0.6   | 2026-03 | 原生双边转账、balanceOffset 平账、全景出入金导出与视图对其  |
 | v0.6.1 | 2026-03 | DevDB中文化、流水编辑/删除功能、余额原子平账事务模型      |
 | v0.6.2 | 2026-03 | Chunk 分包优化、路由懒加载、构建产物体积降低 70%           |
+| v1.0.1 | 2026-03 | 职责分离重构：拆分 TransactionFormSheet 与 AddTransactionButton |
 
 ## 设计目标
 
@@ -42,7 +43,7 @@ src/
 │   ├── data-management/ # 数据管理 — 导入/导出/清空 (JSON + TXT)
 │   ├── import/         # 历史数据导入 — TXT 解析器 (SOH 分隔)
 │   ├── stats/          # 统计 — MonthlyOverview, DailyChart, CategoryBreakdown
-│   └── transactions/   # 交易 — AddTransactionSheet(新增/编辑), TransactionList, deleteTransaction
+│   └── transactions/   # 交易 — TransactionFormSheet(纯表单), AddTransactionButton(触发器), deleteTransaction
 ├── layouts/            # AppLayout — 响应式侧边栏(桌面) / 底栏(移动)
 ├── lib/                # 工具函数 (cn) + 共享常量 (constants.ts)
 ├── routes/             # 页面路由 — Home, Stats, Settings

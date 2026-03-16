@@ -25,7 +25,7 @@ import { ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react"
 
 import { StatsPeriodPicker } from "@/features/stats/components/StatsPeriodPicker"
 import { getDateRange, type TimeDimension } from "@/features/stats/utils"
-import { AddTransactionSheet } from "@/features/transactions/components/AddTransactionSheet"
+import { TransactionFormSheet } from "@/features/transactions/components/AddTransactionSheet"
 import { deleteTransaction } from "@/features/transactions/utils/deleteTransaction"
 import {
     Dialog,
@@ -355,7 +355,7 @@ export function TransactionsTable() {
                 </div>
             )}
 
-            <AddTransactionSheet 
+            <TransactionFormSheet 
                 editTransactionId={editTxId} 
                 open={isEditOpen} 
                 onOpenChange={setIsEditOpen} 

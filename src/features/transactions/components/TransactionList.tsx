@@ -3,7 +3,7 @@ import { db } from "@/db"
 import { format } from "date-fns"
 import { useState } from "react"
 import { Pencil, Trash2 } from "lucide-react"
-import { AddTransactionSheet } from "./AddTransactionSheet"
+import { TransactionFormSheet } from "./AddTransactionSheet"
 import { deleteTransaction } from "@/features/transactions/utils/deleteTransaction"
 import {
     Dialog,
@@ -145,7 +145,7 @@ export function TransactionList() {
             ))}
 
             {/* 编辑流水弹窗 */}
-            <AddTransactionSheet 
+            <TransactionFormSheet 
                 editTransactionId={editTxId} 
                 open={isEditOpen} 
                 onOpenChange={setIsEditOpen} 

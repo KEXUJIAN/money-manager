@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import * as z from "zod"
 import { generateId, cn } from "@/lib/utils"
-import { Plus } from "lucide-react"
 import { motion } from "framer-motion"
 import { plus, minus, formatAmount } from "@/lib/math"
 
@@ -17,7 +16,6 @@ import {
     SheetDescription,
     SheetHeader,
     SheetTitle,
-    SheetTrigger,
 } from "@/components/ui/sheet"
 import {
     Form,
@@ -87,23 +85,17 @@ import {
     DialogFooter,
 } from "@/components/ui/dialog"
 
-export function AddTransactionSheet({ 
+export function TransactionFormSheet({ 
     editTransactionId,
-    open: controlledOpen,
-    onOpenChange: setControlledOpen
+    open,
+    onOpenChange
 }: { 
     editTransactionId?: string;
-    open?: boolean;
-    onOpenChange?: (open: boolean) => void;
-} = {}) {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+}) {
     const isEditing = !!editTransactionId
-    // 如果外部传入 controlledOpen 则使用外部状态，否则使用内部本身（主要用于那个右下角加号按钮的自由触发）
-    const [internalOpen, setInternalOpen] = useState(false)
-    const open = controlledOpen !== undefined ? controlledOpen : internalOpen
-    const setOpen = (val: boolean) => {
-        setInternalOpen(val)
-        if (setControlledOpen) setControlledOpen(val)
-    }
+    const setOpen = onOpenChange
 
     const [activeTab, setActiveTab] = useState("expense")
 
@@ -313,14 +305,6 @@ export function AddTransactionSheet({
 
     return (
         <Sheet open={open} onOpenChange={setOpen}>
-            {!isEditing && (
-                <SheetTrigger asChild>
-                    <Button className="rounded-full h-12 w-12 shadow-lg fixed bottom-20 right-6 z-20 md:static md:h-9 md:w-auto md:shadow-none md:rounded-md">
-                        <Plus className="h-6 w-6 md:mr-2 md:h-4 md:w-4" />
-                        <span className="hidden md:inline">记一笔</span>
-                    </Button>
-                </SheetTrigger>
-            )}
             <SheetContent className="overflow-y-auto w-full sm:max-w-md">
                 <SheetHeader>
                     <SheetTitle>{isEditing ? "编辑流水" : "记一笔"}</SheetTitle>
