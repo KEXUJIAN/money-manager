@@ -8,6 +8,7 @@
 - [x] **UI 修复**：消除了 `TransactionList` 和 `TransactionsTable` 复用表单时带出的冗余按钮。
 - [x] **全局同步**：更新了 `Home`、`TransactionList`、`TransactionsTable` 的所有组件引用。
 - [x] **代码清理**：移除 `AddTransactionSheet.tsx` 中冗余的内部状态和触发逻辑，修复误删的必要导入。
+- [x] **文档重构**：统一版本历史至 `changelog.md`，清理冗余文档维护规则。
 
 ## 技术决策
 - **职责分离 (Separation of Concerns)**：
