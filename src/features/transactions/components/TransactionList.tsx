@@ -108,7 +108,7 @@ export function TransactionList() {
                                 {tx.type === 'transfer' ? '余额运转' : (tx.categoryName || tx.note || '未分类')}
                             </p>
                             <p className="text-xs text-muted-foreground mt-1">
-                                {format(tx.date, 'MM/dd')} · {tx.type === 'transfer'
+                                {format(tx.date, 'MM/dd HH:mm')} · {tx.type === 'transfer'
                                     ? <>{tx.accountName} <span className="mx-0.5 opacity-50">→</span> {tx.targetAccountName}</>
                                     : tx.type === 'expense'
                                         ? `出金: ${tx.accountName}`
