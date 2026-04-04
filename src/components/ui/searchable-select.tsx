@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react"
 import { Check, ChevronsUpDown, Search, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
+import PinyinMatch from "pinyin-match"
 import { Button } from "@/components/ui/button"
 import {
     Popover,
@@ -39,7 +40,7 @@ export function SearchableSelect({
     const inputRef = useRef<HTMLInputElement>(null)
 
     const filtered = search
-        ? options.filter(o => o.label.toLowerCase().includes(search.toLowerCase()))
+        ? options.filter(o => PinyinMatch.match(o.label, search) || o.label.toLowerCase().includes(search.toLowerCase()))
         : options
 
     const selectedLabel = options.find(o => o.value === value)?.label

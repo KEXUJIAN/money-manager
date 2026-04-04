@@ -1,6 +1,7 @@
 import { Link, Outlet, useLocation } from "react-router-dom"
 import { Home, PieChart, Settings } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { AddTransactionButton } from "@/features/transactions/components/AddTransactionButton"
 
 export default function AppLayout() {
     const location = useLocation()
@@ -68,9 +69,11 @@ export default function AppLayout() {
                     </div>
                 </header>
 
-                <main className="flex-1 overflow-y-auto p-4 md:p-8 md:max-w-5xl md:mx-auto md:w-full">
+                <main className="flex-1 overflow-y-auto p-4 md:p-8 md:max-w-5xl md:mx-auto md:w-full relative">
                     <Outlet />
                 </main>
+
+                <AddTransactionButton />
 
                 {/* Mobile Bottom Tab Bar */}
                 <div className="md:hidden border-t bg-card/80 backdrop-blur-md flex items-center justify-around px-2 py-2 z-10">

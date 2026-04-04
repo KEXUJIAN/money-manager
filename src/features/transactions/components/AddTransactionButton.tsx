@@ -10,10 +10,10 @@ export function AddTransactionButton() {
         <>
             <Button 
                 onClick={() => setOpen(true)}
-                className="rounded-full h-12 w-12 shadow-lg fixed bottom-20 right-6 z-20 md:static md:h-9 md:w-auto md:shadow-none md:rounded-md"
+                className="rounded-full h-14 w-14 md:h-12 md:w-auto md:px-5 shadow-xl fixed bottom-20 right-4 md:bottom-8 md:right-8 z-50 flex items-center justify-center transition-transform hover:scale-105 active:scale-95"
             >
-                <Plus className="h-6 w-6 md:mr-2 md:h-4 md:w-4" />
-                <span className="hidden md:inline">记一笔</span>
+                <Plus className="h-6 w-6 md:mr-2 md:h-5 md:w-5" />
+                <span className="hidden md:inline font-medium">记一笔</span>
             </Button>
 
             <TransactionFormSheet 
