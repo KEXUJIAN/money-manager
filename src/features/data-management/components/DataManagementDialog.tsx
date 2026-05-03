@@ -6,6 +6,7 @@ import { LEGACY_TXT_DELIMITER, LEGACY_TXT_HEADER } from "@/lib/constants"
 import { toast } from "sonner"
 import { useLiveQuery } from "dexie-react-hooks"
 import { generateId } from "@/lib/utils"
+import { saveFile } from "@/lib/fileService"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -66,13 +67,11 @@ export function DataManagementDialog() {
                 transactions,
             }
 
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement("a")
-            a.href = url
-            a.download = `money-manager-backup-${new Date().toISOString().slice(0, 10)}.json`
-            a.click()
-            URL.revokeObjectURL(url)
+            const content = JSON.stringify(data, null, 2)
+            const filename = `money-manager-backup-${new Date().toISOString().slice(0, 10)}.json`
+
+            const saved = await saveFile(filename, content, "json")
+            if (saved) toast.success("导出 JSON 成功")
         } catch (error) {
             console.error("导出失败:", error)
             toast.error("导出失败，请重试")
@@ -84,6 +83,7 @@ export function DataManagementDialog() {
     // ---- 数据导出 (TXT) ----
     async function exportTxt() {
         try {
+            setIsProcessing(true)
             const transactions = await db.transactions.toArray()
             // 按时间升序排列（最早 → 最新）
             transactions.sort((a, b) => a.date - b.date)
@@ -128,13 +128,10 @@ export function DataManagementDialog() {
             })
 
             const content = lines.join("\n")
-            const blob = new Blob([content], { type: "text/plain;charset=utf-8" })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement("a")
-            a.href = url
-            a.download = `money-manager-export-${new Date().toISOString().slice(0, 10)}.txt`
-            a.click()
-            URL.revokeObjectURL(url)
+            const filename = `money-manager-export-${new Date().toISOString().slice(0, 10)}.txt`
+            
+            const saved = await saveFile(filename, content, "txt")
+            if (saved) toast.success("导出 TXT 成功")
 
         } catch (error) {
             console.error("TXT 导出失败:", error)
@@ -147,6 +144,7 @@ export function DataManagementDialog() {
     // ---- 数据导出 (XLSX) ----
     async function exportXlsx() {
         try {
+            setIsProcessing(true)
             const XLSX = await import("xlsx")
             const transactions = await db.transactions.toArray()
             transactions.sort((a, b) => a.date - b.date)
@@ -224,8 +222,11 @@ export function DataManagementDialog() {
             const workbook = XLSX.utils.book_new()
             XLSX.utils.book_append_sheet(workbook, worksheet, "账单数据")
 
-            XLSX.writeFile(workbook, `money-manager-export-${new Date().toISOString().slice(0, 10)}.xlsx`)
-            toast.success("导出 XLSX 成功")
+            const filename = `money-manager-export-${new Date().toISOString().slice(0, 10)}.xlsx`
+            const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' })
+            
+            const saved = await saveFile(filename, new Uint8Array(wbout), "xlsx")
+            if (saved) toast.success("导出 XLSX 成功")
         } catch (error) {
             console.error("XLSX 导出失败:", error)
             toast.error("导出 XLSX 失败，请重试")

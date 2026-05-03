@@ -20,6 +20,7 @@ Web 优先的跨平台个人记账应用，优先级：**Web > PC > Android > iO
 | 表单     | react-hook-form + Zod      | 轻量、类型安全                            |
 | 路由     | React Router v7            | 稳定、社区大                              |
 | 桌面端   | Tauri v2                   | 比 Electron 轻量 10 倍，使用系统 WebView  |
+| 桌面插件 | dialog, fs                 | 支持原生文件保存对话框与文件读写          |
 | 移动端   | Capacitor（预留）          | 可将 Web App 直接包装成 APK               |
 
 ## 目录结构
@@ -37,7 +38,7 @@ src/
 │   ├── stats/          # 统计 — MonthlyOverview, DailyChart, CategoryBreakdown
 │   └── transactions/   # 交易 — TransactionFormSheet(纯表单), AddTransactionButton(触发器), deleteTransaction
 ├── layouts/            # AppLayout — 响应式侧边栏(桌面) / 底栏(移动)
-├── lib/                # 工具函数 (cn) + 共享常量 (constants.ts)
+├── lib/                # 工具函数 (cn) + 共享常量 + fileService (环境自适应导出)
 ├── routes/             # 页面路由 — Home, Stats, Settings
 ├── index.css           # 全局主题 (hsl 变量、渐变、自定义滚动条)
 └── main.tsx            # 入口 + 数据库 seed
