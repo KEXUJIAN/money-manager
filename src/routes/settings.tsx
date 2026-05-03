@@ -308,7 +308,7 @@ export default function Settings() {
             <Card>
                 <CardContent className="pt-6">
                     <p className="text-sm text-muted-foreground text-center">
-                        Money Manager v0.3.1
+                        Money Manager v{__APP_VERSION__}
                     </p>
                 </CardContent>
             </Card>
